@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { joursOuvrables, feriesDansPeriode } from './joursFeries'
 import { useAuth, useSocietes, useSalaries, useConges } from './hooks/useAppData'
 import { supabase } from './supabase'
 import LoginPage from './LoginPage'
@@ -35,6 +36,7 @@ const RC = {
 
 /* ─── HELPERS ─── */
 const diffDays = (a,b) => Math.round((new Date(b)-new Date(a))/(1000*60*60*24))
+import { joursOuvrables, feriesDansPeriode } from './joursFeries'
 const fmtDate  = d => new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"})
 const fmtShort = d => new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})
 const fmtTs    = d => new Date(d).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})
@@ -180,7 +182,7 @@ function DashboardEmploye({profile,conges,salaries,onNewRequest}){
   const enAttente=mesConges.filter(c=>["En attente","Validé Manager","Validé RH"].includes(c.statut))
   const prochains=mesConges.filter(c=>new Date(c.debut)>today&&c.statut==="Approuvé").sort((a,b)=>new Date(a.debut)-new Date(b.debut))
   const SOLDES={"Congés payés":{total:25,couleur:"#3B8BD4"},"RTT":{total:12,couleur:"#1D9E75"}}
-  const joursPris=type=>mesConges.filter(c=>c.type===type&&c.statut==="Approuvé").reduce((a,c)=>a+diffDays(c.debut,c.fin)+1,0)
+  const joursPris = type => mesConges.filter(c=>c.type===type&&c.statut==="Approuvé").reduce((a,c)=>a+joursOuvrables(c.debut,c.fin),0)
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <div style={{background:"#F1EFE8",border:"0.5px solid #e8e8e8",borderRadius:12,padding:"18px 20px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
@@ -195,7 +197,7 @@ function DashboardEmploye({profile,conges,salaries,onNewRequest}){
         <SectionTitle>Mes soldes</SectionTitle>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           {Object.entries(SOLDES).map(([type,{total,couleur}])=>{
-            const pris=joursPris(type),restant=total-pris
+            const pris=joursOuvrables(type),restant=total-pris
             const enAttenteCe=mesConges.filter(c=>c.type===type&&["En attente","Validé Manager","Validé RH"].includes(c.statut)).reduce((a,c)=>a+diffDays(c.debut,c.fin)+1,0)
             return(<div key={type} style={{padding:"12px 14px",borderRadius:10,border:`0.5px solid ${TC[type].light}`,background:TC[type].light+"55"}}>
               <div style={{fontSize:11,color:"#888",marginBottom:2}}>{type}</div>
@@ -1137,6 +1139,7 @@ const pendingBadge=useMemo(()=>{
         {congesVisibles.slice().sort((a,b)=>new Date(b.debut)-new Date(a.debut)).map(c=>{
           const sal=getSalObj(c,salaries)
           const jours=diffDays(c.debut,c.fin)+1
+          const joursOuvr=joursOuvrables(c.debut,c.fin)
           const nexts=NEXT[c.statut]||[]
           const isSel=selId===c.id
           const canAct=(isMgr&&c.statut==="En attente")||(isRH&&c.statut==="Validé Manager")||isAdmin
@@ -1145,7 +1148,7 @@ const pendingBadge=useMemo(()=>{
               <Avatar nom={sal?.nom||"?"} size={30}/>
               <div style={{flex:1,minWidth:80}}><div style={{fontSize:14,fontWeight:500}}>{sal?.nom||"—"}</div><div style={{fontSize:11,color:"#aaa"}}>{getSocNom(getSocId(sal),societes)}</div></div>
               <TypeBadge type={c.type}/><Badge statut={c.statut}/>
-              <div style={{fontSize:12,color:"#888",textAlign:"right",minWidth:110}}>{fmtDate(c.debut)} → {fmtDate(c.fin)}<div style={{fontSize:11}}>{jours}j</div></div>
+              <div style={{fontSize:12,color:"#888",textAlign:"right",minWidth:110}}>{fmtDate(c.debut)} → {fmtDate(c.fin)}<div style={{fontSize:11}}><div style={{fontSize:12}}>{joursOuvr}j ouvrables <span style={{color:"#bbb"}}>/ {jours}j calendrier</span></div></div></div>
             </div>
             {isSel&&<div style={{marginTop:10,paddingTop:10,borderTop:"0.5px solid #f0f0f0"}} onClick={e=>e.stopPropagation()}>
               {c.commentaire&&<div style={{fontSize:12,color:"#888",marginBottom:8,fontStyle:"italic"}}>"{c.commentaire}"</div>}
