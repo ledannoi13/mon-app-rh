@@ -782,6 +782,89 @@ function PanelLogs({logs,loading,clearLogs}){
 /* ═══════════════════════════════════════
    MAIN APP
 ═══════════════════════════════════════ */
+
+function ModalChangerMotDePasse({ onClose }) {
+  const [newPwd,  setNewPwd]  = useState('')
+  const [confPwd, setConfPwd] = useState('')
+  const [error,   setError]   = useState('')
+  const [success, setSuccess] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [focused, setFocused] = useState(null)
+
+  const pwdStrength = () => {
+    if (!newPwd) return { level:0, label:'', color:'#e5e7eb' }
+    if (newPwd.length < 4) return { level:1, label:'Trop court', color:'#FF6B6B' }
+    if (newPwd.length < 6) return { level:2, label:'Faible', color:'#FF8E53' }
+    if (newPwd.length >= 8 && /[A-Z]/.test(newPwd) && /[0-9]/.test(newPwd)) return { level:4, label:'Fort ✓', color:'#06D6A0' }
+    return { level:3, label:'Moyen', color:'#FFC85A' }
+  }
+  const str = pwdStrength()
+
+  async function handleSubmit(e) {
+    e.preventDefault(); setError('')
+    if (newPwd.length < 6) { setError('6 caractères minimum'); return }
+    if (newPwd !== confPwd) { setError('Les mots de passe ne correspondent pas'); return }
+    setLoading(true)
+    const { error: err } = await supabase.auth.updateUser({ password: newPwd })
+    if (err) setError(err.message)
+    else { setSuccess('Mot de passe mis à jour !'); setTimeout(()=>onClose(), 2000) }
+    setLoading(false)
+  }
+
+  const inp = (foc, hasErr) => ({
+    width:'100%', boxSizing:'border-box',
+    padding:'10px 14px 10px 38px', fontSize:13,
+    border:`1.5px solid ${hasErr?'#FF6B6B':foc?'#7C3AED':'#e5e7eb'}`,
+    borderRadius:8, outline:'none',
+    boxShadow:hasErr?'0 0 0 3px rgba(255,107,107,0.1)':foc?'0 0 0 3px rgba(124,58,237,0.1)':'none',
+    transition:'all 0.15s', fontFamily:"'Plus Jakarta Sans',sans-serif",
+  })
+
+  return (
+    <Modal title="Changer mon mot de passe" onClose={onClose}>
+      {success?(
+        <div style={{textAlign:'center',padding:'20px 0'}}>
+          <div style={{fontSize:40,marginBottom:12}}>🎉</div>
+          <div style={{fontSize:14,color:'#166534',fontWeight:500}}>{success}</div>
+        </div>
+      ):(
+        <form onSubmit={handleSubmit}>
+          <div style={{display:'flex',flexDirection:'column',gap:14,marginBottom:16}}>
+            <div>
+              <label style={{fontSize:12,fontWeight:600,color:'#374151',display:'block',marginBottom:5}}>NOUVEAU MOT DE PASSE</label>
+              <div style={{position:'relative'}}>
+                <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:14,pointerEvents:'none'}}>🔒</span>
+                <input type="password" value={newPwd} onChange={e=>{setNewPwd(e.target.value);setError('')}} onFocus={()=>setFocused('new')} onBlur={()=>setFocused(null)} placeholder="6 caractères minimum" required autoFocus style={inp(focused==='new',false)}/>
+              </div>
+              {newPwd&&<>
+                <div style={{display:'flex',gap:3,marginTop:6}}>
+                  {[1,2,3,4].map(i=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=str.level?str.color:'#e5e7eb',transition:'background 0.3s'}}/>)}
+                </div>
+                <div style={{fontSize:11,color:str.color,marginTop:3,fontWeight:500}}>{str.label}</div>
+              </>}
+            </div>
+            <div>
+              <label style={{fontSize:12,fontWeight:600,color:'#374151',display:'block',marginBottom:5}}>CONFIRMER</label>
+              <div style={{position:'relative'}}>
+                <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:14,pointerEvents:'none'}}>✅</span>
+                <input type="password" value={confPwd} onChange={e=>{setConfPwd(e.target.value);setError('')}} onFocus={()=>setFocused('conf')} onBlur={()=>setFocused(null)} placeholder="Répétez le mot de passe" required style={inp(focused==='conf',!!error&&confPwd.length>0&&newPwd!==confPwd)}/>
+              </div>
+              {confPwd&&newPwd!==confPwd&&<div style={{fontSize:11,color:'#FF6B6B',marginTop:3}}>Ne correspondent pas</div>}
+              {confPwd&&newPwd===confPwd&&<div style={{fontSize:11,color:'#06D6A0',marginTop:3}}>✓ Correspondent</div>}
+            </div>
+          </div>
+          {error&&<div style={{fontSize:12,color:'#FF6B6B',background:'#fff5f5',border:'1px solid rgba(255,107,107,0.2)',borderRadius:8,padding:'8px 12px',marginBottom:12}}>⚠️ {error}</div>}
+          <div style={{display:'flex',gap:8}}>
+            <button type="submit" disabled={loading} style={{flex:1,fontSize:13,padding:'9px',borderRadius:8,background:loading?'#d1d5db':'linear-gradient(135deg,#7C3AED,#EC4899)',color:'white',border:'none',cursor:loading?'not-allowed':'pointer',fontWeight:600,fontFamily:"'Plus Jakarta Sans',sans-serif",boxShadow:loading?'none':'0 4px 12px rgba(124,58,237,0.3)'}}>
+              {loading?'⏳ Mise à jour...':'Mettre à jour'}
+            </button>
+            <button type="button" onClick={onClose} style={{fontSize:13,padding:'9px 16px',borderRadius:8,cursor:'pointer'}}>Annuler</button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  )
+}
 export default function App(){
   const{user,profile,loading:authLoading,login,logout}=useAuth()
   const{societes,createSociete,updateSociete,deleteSociete}=useSocietes()
@@ -796,6 +879,7 @@ export default function App(){
   const[filtSoc,setFiltSoc]=useState("Toutes")
   const[filtStat,setFiltStat]=useState("Tous")
   const[filtType,setFiltType]=useState("Tous")
+  const[showChangePwd,setShowChangePwd]=useState(false)
   const[socModal,setSocModal]=useState(null)
   const[socNom,setSocNom]=useState("")
   const[socConfirmDel,setSocConfirmDel]=useState(null)
@@ -958,6 +1042,7 @@ export default function App(){
       </Modal>}
 
      {/* HEADER */}
+     {showChangePwd&&<ModalChangerMotDePasse onClose={()=>setShowChangePwd(false)}/>}
       <div style={{background:"linear-gradient(135deg,#1e1b4b 0%,#312e81 45%,#1e3a5f 100%)",padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,boxShadow:"0 2px 20px rgba(0,0,0,0.15)"}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#FF6B6B,#FF8E53)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,boxShadow:"0 4px 12px rgba(255,107,107,0.4)"}}>🏢</div>
@@ -973,6 +1058,7 @@ export default function App(){
             <span style={{fontSize:10,color:"rgba(255,255,255,0.5)"}}>· {role}</span>
           </div>
           <button onClick={()=>setTab("form")} style={{fontSize:13,padding:"7px 16px",borderRadius:99,background:"linear-gradient(135deg,#FF6B6B,#FF8E53)",color:"white",border:"none",cursor:"pointer",fontWeight:700,boxShadow:"0 4px 12px rgba(255,107,107,0.35)",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>+ Demande</button>
+          <button onClick={()=>setShowChangePwd(true)} style={{fontSize:12,padding:"7px 14px",borderRadius:99,color:"rgba(255,255,255,0.7)",border:"1px solid rgba(255,255,255,0.2)",background:"transparent",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🔑 Mot de passe</button>
           <button onClick={handleLogout} style={{fontSize:12,padding:"7px 14px",borderRadius:99,color:"rgba(255,255,255,0.7)",border:"1px solid rgba(255,255,255,0.2)",background:"transparent",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>Déconnexion</button>
         </div>
       </div>
