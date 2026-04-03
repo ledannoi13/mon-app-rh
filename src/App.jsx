@@ -761,8 +761,8 @@ function useSoldes() {
     return data
   }
 
-  async function basculerAnnee() {
-    const { data } = await supabase.rpc('basculer_annee')
+  async function basculerAnnee(type) {
+    const { data } = await supabase.rpc('basculer_annee', { p_type: type })
     load()
     return data
   }
@@ -837,10 +837,11 @@ function PanelSoldes({ salaries, societes }) {
     else showMsg('Erreur lors de la recharge', 'error')
   }
 
-  async function handleBascule() {
-    await basculerAnnee()
+  async function handleBascule(){
+    const result = await basculerAnnee(confirmBascule)
     setConfirmBascule(false)
-    showMsg('✓ Bascule N→N-1 effectuée pour tous les salariés')
+    if(result?.success) showMsg(`✓ ${result.message}`)
+    else showMsg(result?.message||'Erreur','error')
   }
 
   const SoldeBar = ({ label, acquis, pris, color }) => {
@@ -947,23 +948,29 @@ function PanelSoldes({ salaries, societes }) {
       )}
 
       {/* Modal confirmation bascule annuelle */}
-      {confirmBascule && (
-        <Modal title="Bascule annuelle N → N-1" onClose={() => setConfirmBascule(false)}>
-          <div style={{fontSize:13,color:"#666",marginBottom:16,lineHeight:1.6}}>
-            Deux bascules annuelles :<br/><br/>
-            📅 <strong>1er juin</strong> — Bascule CP :<br/>
-            · Les CP N-1 non soldés sont <strong>perdus</strong><br/>
-            · Les CP N deviennent les nouveaux N-1<br/>
-            · CP N repart à 0<br/><br/>
-            📅 <strong>1er janvier</strong> — Remise à zéro RTT :<br/>
-            · Les RTT non pris sont <strong>perdus</strong><br/>
-            · RTT repart à 0
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleBascule} style={{ flex: 1, fontSize: 13, padding: 8, borderRadius: 8, background: '#FCEBEB', color: '#501313', border: '0.5px solid #F7C1C1', cursor: 'pointer' }}>
-              Confirmer la bascule
+      {confirmBascule&&(
+        <Modal title={confirmBascule==='cp'?"Bascule CP — 1er juin":"Remise à zéro RTT — 1er janvier"} onClose={()=>setConfirmBascule(false)}>
+          {confirmBascule==='cp'?(
+            <div style={{fontSize:13,color:"#666",marginBottom:16,lineHeight:1.7}}>
+              Cette action va :<br/>
+              · Les CP N-1 non soldés sont <strong>perdus définitivement</strong><br/>
+              · Les CP Année N deviennent les nouveaux N-1<br/>
+              · CP Année N repart à 0<br/><br/>
+              <span style={{color:"#D85A30",fontWeight:500}}>⚠ À faire uniquement le 1er juin</span>
+            </div>
+          ):(
+            <div style={{fontSize:13,color:"#666",marginBottom:16,lineHeight:1.7}}>
+              Cette action va :<br/>
+              · Les RTT non pris sont <strong>perdus définitivement</strong><br/>
+              · Le compteur RTT repart à 0 pour tous les salariés<br/><br/>
+              <span style={{color:"#D85A30",fontWeight:500}}>⚠ À faire uniquement le 1er janvier</span>
+            </div>
+          )}
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={handleBascule} style={{flex:1,fontSize:13,padding:8,borderRadius:8,background:"#FCEBEB",color:"#501313",border:"0.5px solid #F7C1C1",cursor:"pointer"}}>
+              Confirmer
             </button>
-            <button onClick={() => setConfirmBascule(false)} style={{ fontSize: 13, padding: '8px 16px', borderRadius: 8, cursor: 'pointer' }}>Annuler</button>
+            <button onClick={()=>setConfirmBascule(false)} style={{fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer"}}>Annuler</button>
           </div>
         </Modal>
       )}
@@ -1006,9 +1013,13 @@ function PanelSoldes({ salaries, societes }) {
             style={{ fontSize: 13, padding: '7px 14px', borderRadius: 8, background: 'linear-gradient(135deg,#FF6B6B,#FF8E53)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, boxShadow: '0 4px 12px rgba(255,107,107,0.3)' }}>
             {rechargeLoading ? '⏳' : '⚡'} Recharger tout ({moisNoms[moisActuel]})
           </button>
-          <button onClick={() => setConfirmBascule(true)}
-            style={{ fontSize: 13, padding: '7px 14px', borderRadius: 8, background: '#EEEDFE', color: '#3C3489', border: '0.5px solid #AFA9EC', cursor: 'pointer', fontWeight: 500 }}>
-            📅 Bascule N→N-1
+         <button onClick={()=>setConfirmBascule('cp')}
+            style={{fontSize:13,padding:"7px 14px",borderRadius:8,background:"#E6F1FB",color:"#0C447C",border:"0.5px solid #B5D4F4",cursor:"pointer",fontWeight:500}}>
+            📅 Bascule CP (1er juin)
+          </button>
+          <button onClick={()=>setConfirmBascule('rtt')}
+            style={{fontSize:13,padding:"7px 14px",borderRadius:8,background:"#E1F5EE",color:"#085041",border:"0.5px solid #5DCAA5",cursor:"pointer",fontWeight:500}}>
+            📅 Bascule RTT (1er janv.)
           </button>
         </div>
       </div>
