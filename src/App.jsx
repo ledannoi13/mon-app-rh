@@ -949,11 +949,15 @@ function PanelSoldes({ salaries, societes }) {
       {/* Modal confirmation bascule annuelle */}
       {confirmBascule && (
         <Modal title="Bascule annuelle N → N-1" onClose={() => setConfirmBascule(false)}>
-          <div style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.6 }}>
-            Cette action va :<br/>
-            • Déplacer les CP Année N de chaque salarié vers N-1<br/>
-            • Remettre CP Année N et RTT à 0<br/>
-            • À faire au <strong>1er janvier</strong> uniquement
+          <div style={{fontSize:13,color:"#666",marginBottom:16,lineHeight:1.6}}>
+            Deux bascules annuelles :<br/><br/>
+            📅 <strong>1er juin</strong> — Bascule CP :<br/>
+            · Les CP N-1 non soldés sont <strong>perdus</strong><br/>
+            · Les CP N deviennent les nouveaux N-1<br/>
+            · CP N repart à 0<br/><br/>
+            📅 <strong>1er janvier</strong> — Remise à zéro RTT :<br/>
+            · Les RTT non pris sont <strong>perdus</strong><br/>
+            · RTT repart à 0
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={handleBascule} style={{ flex: 1, fontSize: 13, padding: 8, borderRadius: 8, background: '#FCEBEB', color: '#501313', border: '0.5px solid #F7C1C1', cursor: 'pointer' }}>
