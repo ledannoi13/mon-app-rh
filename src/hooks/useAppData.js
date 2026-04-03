@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 
 export function useAuth() {
-  const [user, setUser]       = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user,       setUser]       = useState(null)
+  const [profile,    setProfile]    = useState(null)
+  const [loading,    setLoading]    = useState(true)
+  const [isRecovery, setIsRecovery] = useState(false)
 
   async function loadProfile(authUser) {
     if (!authUser) { setProfile(null); setLoading(false); return }
@@ -22,9 +23,12 @@ export function useAuth() {
       setUser(session?.user ?? null)
       loadProfile(session?.user ?? null)
     })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
       loadProfile(session?.user ?? null)
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecovery(true)
+      }
     })
     return () => listener.subscription.unsubscribe()
   }, [])
@@ -36,10 +40,10 @@ export function useAuth() {
 
   async function logout() {
     await supabase.auth.signOut()
-    setUser(null); setProfile(null)
+    setUser(null); setProfile(null); setIsRecovery(false)
   }
 
-  return { user, profile, loading, login, logout }
+  return { user, profile, loading, login, logout, isRecovery, setIsRecovery }
 }
 
 export function useSocietes() {
@@ -102,7 +106,7 @@ export function useSalaries() {
 }
 
 export function useConges() {
-  const [conges, setConges]   = useState([])
+  const [conges,  setConges]  = useState([])
   const [loading, setLoading] = useState(true)
 
   async function load() {
@@ -117,13 +121,13 @@ export function useConges() {
 
   useEffect(() => { load() }, [])
 
-async function soumettre({ salarie_id, type, debut, fin, commentaire, statut='En attente' }) {
-  const { error } = await supabase.from('conges').insert({
-    salarie_id, type, debut, fin, commentaire, statut
-  })
-  if (error) throw error
-  load()
-}
+  async function soumettre({ salarie_id, type, debut, fin, commentaire, statut='En attente' }) {
+    const { error } = await supabase.from('conges').insert({
+      salarie_id, type, debut, fin, commentaire, statut
+    })
+    if (error) throw error
+    load()
+  }
 
   async function changerStatut(id, statut) {
     const { error } = await supabase.from('conges').update({ statut }).eq('id', id)

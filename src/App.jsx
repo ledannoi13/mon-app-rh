@@ -866,7 +866,7 @@ function ModalChangerMotDePasse({ onClose }) {
   )
 }
 export default function App(){
-  const{user,profile,loading:authLoading,login,logout}=useAuth()
+  const{user,profile,loading:authLoading,login,logout,isRecovery,setIsRecovery}=useAuth()
   const{societes,createSociete,updateSociete,deleteSociete}=useSocietes()
   const{salaries,createSalarie,updateSalarie,deleteSalarie}=useSalaries()
   const{conges,loading:congesLoading,soumettre,changerStatut:changerStatutRaw,supprimer:supprimerRaw}=useConges()
@@ -913,7 +913,7 @@ export default function App(){
     })
   },[conges,salaries,filtSoc,filtStat,filtType,profile,isEmp,isMgr,canAll])
 
-  const pendingBadge=useMemo(()=>{
+const pendingBadge=useMemo(()=>{
     if(!profile)return 0
     if(isMgr)return conges.filter(c=>getSocId(getSalObj(c,salaries))===profile.societe_id&&c.statut==="En attente").length
     if(isRH)return conges.filter(c=>c.statut==="Validé Manager").length
@@ -922,6 +922,11 @@ export default function App(){
   },[conges,salaries,profile,isMgr,isRH,isAdmin])
 
   if(authLoading)return<div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",fontFamily:"system-ui,sans-serif"}}><div style={{fontSize:14,color:"#888"}}>Chargement...</div></div>
+  if(isRecovery)return(
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f8f7ff"}}>
+      <ModalChangerMotDePasse onClose={()=>setIsRecovery(false)}/>
+    </div>
+  )
   if(!user||!profile)return<LoginPage onLogin={async(email,pwd)=>{await login(email,pwd);await addLog(null,email,"—","connexion",`Connexion de ${email}`)}}/>
 
   const logAction=async(action,details="")=>{
