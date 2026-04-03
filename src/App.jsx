@@ -36,7 +36,6 @@ const RC = {
 
 /* ─── HELPERS ─── */
 const diffDays = (a,b) => Math.round((new Date(b)-new Date(a))/(1000*60*60*24))
-import { joursOuvrables, feriesDansPeriode } from './joursFeries'
 const fmtDate  = d => new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"})
 const fmtShort = d => new Date(d).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})
 const fmtTs    = d => new Date(d).toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})
@@ -197,7 +196,7 @@ function DashboardEmploye({profile,conges,salaries,onNewRequest}){
         <SectionTitle>Mes soldes</SectionTitle>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           {Object.entries(SOLDES).map(([type,{total,couleur}])=>{
-            const pris=joursOuvrables(type),restant=total-pris
+            const pris=joursPris(type),restant=total-pris
             const enAttenteCe=mesConges.filter(c=>c.type===type&&["En attente","Validé Manager","Validé RH"].includes(c.statut)).reduce((a,c)=>a+diffDays(c.debut,c.fin)+1,0)
             return(<div key={type} style={{padding:"12px 14px",borderRadius:10,border:`0.5px solid ${TC[type].light}`,background:TC[type].light+"55"}}>
               <div style={{fontSize:11,color:"#888",marginBottom:2}}>{type}</div>
@@ -1139,7 +1138,6 @@ const pendingBadge=useMemo(()=>{
         {congesVisibles.slice().sort((a,b)=>new Date(b.debut)-new Date(a.debut)).map(c=>{
           const sal=getSalObj(c,salaries)
           const jours=diffDays(c.debut,c.fin)+1;const joursOuvr=joursOuvrables(c.debut,c.fin)
-          const joursOuvr=joursOuvrables(c.debut,c.fin)
           const nexts=NEXT[c.statut]||[]
           const isSel=selId===c.id
           const canAct=(isMgr&&c.statut==="En attente")||(isRH&&c.statut==="Validé Manager")||isAdmin
