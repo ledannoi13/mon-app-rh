@@ -727,7 +727,349 @@ function renderRow(sal,idx,gCongesGantt,gYear,gMonth,gTotalDays,COL_W,ROW_H,LABE
     </div>
   )
 }
+/* ═══ HOOK SOLDES ═══ */
+function useSoldes() {
+  const [soldes, setSoldes] = useState([])
+  const [loading, setLoading] = useState(true)
 
+  async function load() {
+    setLoading(true)
+    const { data } = await supabase
+      .from('soldes')
+      .select('*, salaries(id, nom, societe_id, societes(nom))')
+      .order('created_at')
+    setSoldes(data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  async function updateSolde(id, fields) {
+    await supabase.from('soldes').update(fields).eq('id', id)
+    load()
+  }
+
+  async function rechargerUn(salarie_id) {
+    const { data } = await supabase.rpc('recharger_solde_salarie', { p_salarie_id: salarie_id })
+    load()
+    return data
+  }
+
+  async function rechargerTous() {
+    const { data } = await supabase.rpc('recharger_tous_les_soldes')
+    load()
+    return data
+  }
+
+  async function basculerAnnee() {
+    const { data } = await supabase.rpc('basculer_annee')
+    load()
+    return data
+  }
+
+  return { soldes, loading, updateSolde, rechargerUn, rechargerTous, basculerAnnee, reloadSoldes: load }
+}
+
+/* ═══ PANEL SOLDES ═══ */
+function PanelSoldes({ salaries, societes }) {
+  const { soldes, loading, updateSolde, rechargerUn, rechargerTous, basculerAnnee } = useSoldes()
+  const [editModal, setEditModal] = useState(null)
+  const [editForm, setEditForm] = useState({})
+  const [msg, setMsg] = useState('')
+  const [msgType, setMsgType] = useState('success')
+  const [filtSoc, setFiltSoc] = useState('Toutes')
+  const [confirmBascule, setConfirmBascule] = useState(false)
+  const [rechargeLoading, setRechargeLoading] = useState(false)
+
+  const today = new Date()
+  const moisActuel = today.getMonth() + 1
+  const anneeActuelle = today.getFullYear()
+  const moisNoms = ["","Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"]
+
+  function showMsg(text, type = 'success') {
+    setMsg(text); setMsgType(type)
+    setTimeout(() => setMsg(''), 3000)
+  }
+
+  // Filtre par société
+  const soldesFiltres = soldes.filter(s => {
+    if (filtSoc === 'Toutes') return true
+    return s.salaries?.societe_id === filtSoc
+  })
+
+  // Alerte : salariés non rechargés ce mois
+  const nonRecharges = soldes.filter(s =>
+    s.derniere_recharge_mois !== moisActuel ||
+    s.derniere_recharge_annee !== anneeActuelle
+  )
+
+  function openEdit(s) {
+    setEditModal(s)
+    setEditForm({
+      cp_n_acquis:  s.cp_n_acquis,
+      cp_n_pris:    s.cp_n_pris,
+      cp_n1_acquis: s.cp_n1_acquis,
+      cp_n1_pris:   s.cp_n1_pris,
+      rtt_acquis:   s.rtt_acquis,
+      rtt_pris:     s.rtt_pris,
+      cp_annuel:    s.cp_annuel,
+      rtt_annuel:   s.rtt_annuel,
+    })
+  }
+
+  async function saveEdit() {
+    await updateSolde(editModal.id, editForm)
+    setEditModal(null)
+    showMsg('Solde mis à jour ✓')
+  }
+
+  async function handleRechargerUn(salarie_id, nom) {
+    const result = await rechargerUn(salarie_id)
+    if (result?.success) showMsg(`✓ ${nom} rechargé — +${result.recharge_cp}j CP, +${result.recharge_rtt}j RTT`)
+    else showMsg(result?.message || 'Erreur', 'error')
+  }
+
+  async function handleRechargerTous() {
+    setRechargeLoading(true)
+    const result = await rechargerTous()
+    setRechargeLoading(false)
+    if (result?.success) showMsg(`✓ ${result.message}`)
+    else showMsg('Erreur lors de la recharge', 'error')
+  }
+
+  async function handleBascule() {
+    await basculerAnnee()
+    setConfirmBascule(false)
+    showMsg('✓ Bascule N→N-1 effectuée pour tous les salariés')
+  }
+
+  const SoldeBar = ({ label, acquis, pris, color }) => {
+    const restant = Math.max(acquis - pris, 0)
+    const pct = acquis > 0 ? Math.min(Math.round((pris / acquis) * 100), 100) : 0
+    return (
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+          <span style={{ color: '#888', fontWeight: 500 }}>{label}</span>
+          <span style={{ color: '#aaa' }}>
+            <span style={{ color, fontWeight: 600 }}>{restant}j</span> restants
+            <span style={{ color: '#ccc' }}> / {acquis}j acquis / {pris}j pris</span>
+          </span>
+        </div>
+        <div style={{ height: 6, background: '#f0f0f0', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: pct + '%', background: color, borderRadius: 3, transition: 'width .3s' }} />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* Modal modification solde */}
+      {editModal && (
+        <Modal title={`Modifier les soldes — ${editModal.salaries?.nom}`} onClose={() => setEditModal(null)}>
+          <div style={{ marginBottom: 14, padding: '10px 14px', background: '#EEEDFE', borderRadius: 8, fontSize: 12, color: '#3C3489' }}>
+            <strong>Configuration recharge mensuelle</strong><br/>
+            CP annuel ÷ 12 = recharge mensuelle CP<br/>
+            RTT annuel ÷ 12 = recharge mensuelle RTT
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            {/* Config annuelle */}
+            <div style={{ gridColumn: '1/-1', fontWeight: 500, fontSize: 12, color: '#7C3AED', borderBottom: '0.5px solid #e5e5e5', paddingBottom: 6, marginBottom: 4 }}>
+              Configuration annuelle
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>CP acquis/an</label>
+              <input type="number" value={editForm.cp_annuel} onChange={e => setEditForm(f => ({ ...f, cp_annuel: parseFloat(e.target.value) }))}
+                style={{ width: '100%', fontSize: 13, padding: '6px 10px', border: '0.5px solid #ddd', borderRadius: 6, boxSizing: 'border-box' }} />
+              <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>→ +{(editForm.cp_annuel / 12).toFixed(2)}j/mois</div>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>RTT acquis/an</label>
+              <input type="number" value={editForm.rtt_annuel} onChange={e => setEditForm(f => ({ ...f, rtt_annuel: parseFloat(e.target.value) }))}
+                style={{ width: '100%', fontSize: 13, padding: '6px 10px', border: '0.5px solid #ddd', borderRadius: 6, boxSizing: 'border-box' }} />
+              <div style={{ fontSize: 10, color: '#aaa', marginTop: 2 }}>→ +{(editForm.rtt_annuel / 12).toFixed(2)}j/mois</div>
+            </div>
+
+            {/* Soldes CP N */}
+            <div style={{ gridColumn: '1/-1', fontWeight: 500, fontSize: 12, color: '#3B8BD4', borderBottom: '0.5px solid #e5e5e5', paddingBottom: 6, marginBottom: 4, marginTop: 8 }}>
+              CP Année N (année en cours)
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>Acquis</label>
+              <input type="number" value={editForm.cp_n_acquis} onChange={e => setEditForm(f => ({ ...f, cp_n_acquis: parseFloat(e.target.value) }))}
+                style={{ width: '100%', fontSize: 13, padding: '6px 10px', border: '0.5px solid #ddd', borderRadius: 6, boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>Pris</label>
+              <input type="number" value={editForm.cp_n_pris} onChange={e => setEditForm(f => ({ ...f, cp_n_pris: parseFloat(e.target.value) }))}
+                style={{ width: '100%', fontSize: 13, padding: '6px 10px', border: '0.5px solid #ddd', borderRadius: 6, boxSizing: 'border-box' }} />
+            </div>
+
+            {/* Soldes CP N-1 */}
+            <div style={{ gridColumn: '1/-1', fontWeight: 500, fontSize: 12, color: '#D85A30', borderBottom: '0.5px solid #e5e5e5', paddingBottom: 6, marginBottom: 4, marginTop: 8 }}>
+              CP Année N-1 (à solder avant 31/05)
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>Acquis</label>
+              <input type="number" value={editForm.cp_n1_acquis} onChange={e => setEditForm(f => ({ ...f, cp_n1_acquis: parseFloat(e.target.value) }))}
+                style={{ width: '100%', fontSize: 13, padding: '6px 10px', border: '0.5px solid #ddd', borderRadius: 6, boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>Pris</label>
+              <input type="number" value={editForm.cp_n1_pris} onChange={e => setEditForm(f => ({ ...f, cp_n1_pris: parseFloat(e.target.value) }))}
+                style={{ width: '100%', fontSize: 13, padding: '6px 10px', border: '0.5px solid #ddd', borderRadius: 6, boxSizing: 'border-box' }} />
+            </div>
+
+            {/* Soldes RTT */}
+            <div style={{ gridColumn: '1/-1', fontWeight: 500, fontSize: 12, color: '#1D9E75', borderBottom: '0.5px solid #e5e5e5', paddingBottom: 6, marginBottom: 4, marginTop: 8 }}>
+              RTT
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>Acquis</label>
+              <input type="number" value={editForm.rtt_acquis} onChange={e => setEditForm(f => ({ ...f, rtt_acquis: parseFloat(e.target.value) }))}
+                style={{ width: '100%', fontSize: 13, padding: '6px 10px', border: '0.5px solid #ddd', borderRadius: 6, boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>Pris</label>
+              <input type="number" value={editForm.rtt_pris} onChange={e => setEditForm(f => ({ ...f, rtt_pris: parseFloat(e.target.value) }))}
+                style={{ width: '100%', fontSize: 13, padding: '6px 10px', border: '0.5px solid #ddd', borderRadius: 6, boxSizing: 'border-box' }} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={saveEdit} style={{ flex: 1, fontSize: 13, padding: 8, borderRadius: 8, background: 'linear-gradient(135deg,#7C3AED,#EC4899)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+              Enregistrer
+            </button>
+            <button onClick={() => setEditModal(null)} style={{ fontSize: 13, padding: '8px 16px', borderRadius: 8, cursor: 'pointer' }}>Annuler</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal confirmation bascule annuelle */}
+      {confirmBascule && (
+        <Modal title="Bascule annuelle N → N-1" onClose={() => setConfirmBascule(false)}>
+          <div style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.6 }}>
+            Cette action va :<br/>
+            • Déplacer les CP Année N de chaque salarié vers N-1<br/>
+            • Remettre CP Année N et RTT à 0<br/>
+            • À faire au <strong>1er janvier</strong> uniquement
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={handleBascule} style={{ flex: 1, fontSize: 13, padding: 8, borderRadius: 8, background: '#FCEBEB', color: '#501313', border: '0.5px solid #F7C1C1', cursor: 'pointer' }}>
+              Confirmer la bascule
+            </button>
+            <button onClick={() => setConfirmBascule(false)} style={{ fontSize: 13, padding: '8px 16px', borderRadius: 8, cursor: 'pointer' }}>Annuler</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Alerte recharge */}
+      {nonRecharges.length > 0 && (
+        <div style={{ background: '#FAEEDA', border: '0.5px solid #FAC775', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 18 }}>⚠️</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#633806' }}>
+              {nonRecharges.length} salarié(s) non rechargé(s) en {moisNoms[moisActuel]} {anneeActuelle}
+            </div>
+            <div style={{ fontSize: 11, color: '#854F0B', marginTop: 2 }}>
+              {nonRecharges.map(s => s.salaries?.nom).join(', ')}
+            </div>
+          </div>
+          <button onClick={handleRechargerTous} disabled={rechargeLoading}
+            style={{ fontSize: 13, padding: '8px 16px', borderRadius: 8, background: '#FF8E53', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {rechargeLoading ? '⏳ En cours...' : '⚡ Recharger tout'}
+          </button>
+        </div>
+      )}
+
+      {/* Message feedback */}
+      {msg && (
+        <div style={{ padding: '10px 16px', borderRadius: 8, marginBottom: 14, fontSize: 13, fontWeight: 500, background: msgType === 'error' ? '#FCEBEB' : '#E1F5EE', color: msgType === 'error' ? '#501313' : '#085041' }}>
+          {msg}
+        </div>
+      )}
+
+      {/* Actions globales */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <select value={filtSoc} onChange={e => setFiltSoc(e.target.value)} style={{ fontSize: 13, padding: '6px 10px', border: '0.5px solid #ddd', borderRadius: 6 }}>
+          <option value="Toutes">Toutes les sociétés</option>
+          {societes.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
+        </select>
+        <span style={{ fontSize: 12, color: '#888' }}>{soldesFiltres.length} salarié(s)</span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <button onClick={handleRechargerTous} disabled={rechargeLoading}
+            style={{ fontSize: 13, padding: '7px 14px', borderRadius: 8, background: 'linear-gradient(135deg,#FF6B6B,#FF8E53)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, boxShadow: '0 4px 12px rgba(255,107,107,0.3)' }}>
+            {rechargeLoading ? '⏳' : '⚡'} Recharger tout ({moisNoms[moisActuel]})
+          </button>
+          <button onClick={() => setConfirmBascule(true)}
+            style={{ fontSize: 13, padding: '7px 14px', borderRadius: 8, background: '#EEEDFE', color: '#3C3489', border: '0.5px solid #AFA9EC', cursor: 'pointer', fontWeight: 500 }}>
+            📅 Bascule N→N-1
+          </button>
+        </div>
+      </div>
+
+      {/* Liste des soldes */}
+      {loading && <div style={{ textAlign: 'center', padding: '30px 0', color: '#aaa' }}>Chargement...</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {soldesFiltres.map(s => {
+          const sal = s.salaries
+          const estRecharge = s.derniere_recharge_mois === moisActuel && s.derniere_recharge_annee === anneeActuelle
+          const cpN1Restant = Math.max(s.cp_n1_acquis - s.cp_n1_pris, 0)
+          const alerteN1 = cpN1Restant > 0 && new Date().getMonth() >= 4 // Alerte si après mai et N-1 non soldé
+
+          return (
+            <div key={s.id} style={{ background: '#fff', border: `0.5px solid ${alerteN1 ? '#FAC775' : '#e8e8e8'}`, borderRadius: 12, padding: '14px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#7C3AED,#EC4899)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                  {initials(sal?.nom || '?')}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{sal?.nom}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>{sal?.societes?.nom}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  {/* Config annuelle */}
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#EEEDFE', color: '#3C3489' }}>
+                    {s.cp_annuel}j CP/an · {s.rtt_annuel}j RTT/an
+                  </span>
+                  {/* Statut recharge */}
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: estRecharge ? '#E1F5EE' : '#FAEEDA', color: estRecharge ? '#085041' : '#633806' }}>
+                    {estRecharge ? `✓ Rechargé ${moisNoms[moisActuel]}` : `⚠ Non rechargé`}
+                  </span>
+                  {alerteN1 && <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: '#FCEBEB', color: '#501313' }}>⚠ N-1 non soldé</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => handleRechargerUn(s.salarie_id, sal?.nom)}
+                    style={{ fontSize: 12, padding: '5px 10px', borderRadius: 8, background: '#FF8E53', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
+                    ⚡ Recharger
+                  </button>
+                  <button onClick={() => openEdit(s)}
+                    style={{ fontSize: 12, padding: '5px 10px', borderRadius: 8, border: '0.5px solid #ddd', cursor: 'pointer' }}>
+                    ✎ Modifier
+                  </button>
+                </div>
+              </div>
+
+              {/* Barres de soldes */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+                <div>
+                  <SoldeBar label={`CP Année ${anneeActuelle} (N)`} acquis={s.cp_n_acquis} pris={s.cp_n_pris} color="#3B8BD4"/>
+                </div>
+                <div>
+                  <SoldeBar label={`CP Année ${anneeActuelle - 1} (N-1)`} acquis={s.cp_n1_acquis} pris={s.cp_n1_pris} color="#D85A30"/>
+                </div>
+                <div>
+                  <SoldeBar label="RTT" acquis={s.rtt_acquis} pris={s.rtt_pris} color="#1D9E75"/>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 /* ═══ PANEL LOGS ═══ */
 function PanelLogs({logs,loading,clearLogs}){
   const [filtreUser,setFiltreUser]=useState("Tous")
@@ -1010,7 +1352,7 @@ const pendingBadge=useMemo(()=>{
     ?[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"]]
     :isRH
     ?[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"]]
-    :[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["utilisateurs","Utilisateurs"],["logs","Historique"]]
+    :[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"],["utilisateurs","Utilisateurs"],["logs","Historique"]]
 
   const ganttMonth=today.getMonth(),ganttYear=today.getFullYear()
   const totalDays=new Date(ganttYear,ganttMonth+1,0).getDate()
@@ -1189,7 +1531,8 @@ const pendingBadge=useMemo(()=>{
 
       {/* UTILISATEURS */}
       {tab==="utilisateurs"&&isAdmin&&<PanelUtilisateurs profiles={profiles} salaries={salaries} societes={societes} loading={profilesLoading} updateProfile={updateProfile} deleteProfile={deleteProfile} logAction={logAction} currentUser={user}/>}
-
+      {/* SOLDES */}
+      {tab==="soldes"&&(isAdmin||isRH)&&<PanelSoldes salaries={salaries} societes={societes}/>}
       {/* LOGS */}
       {tab==="logs"&&isAdmin&&<PanelLogs logs={logs} loading={logsLoading} clearLogs={clearLogs}/>}
 
