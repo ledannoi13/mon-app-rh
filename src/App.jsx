@@ -1138,7 +1138,7 @@ const pendingBadge=useMemo(()=>{
         {!congesLoading&&congesVisibles.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#bbb"}}>Aucune demande</div>}
         {congesVisibles.slice().sort((a,b)=>new Date(b.debut)-new Date(a.debut)).map(c=>{
           const sal=getSalObj(c,salaries)
-          const jours=diffDays(c.debut,c.fin)+1
+          const jours=diffDays(c.debut,c.fin)+1;const joursOuvr=joursOuvrables(c.debut,c.fin)
           const joursOuvr=joursOuvrables(c.debut,c.fin)
           const nexts=NEXT[c.statut]||[]
           const isSel=selId===c.id
