@@ -117,13 +117,13 @@ export function useConges() {
 
   useEffect(() => { load() }, [])
 
-  async function soumettre({ salarie_id, type, debut, fin, commentaire }) {
-    const { error } = await supabase.from('conges').insert({
-      salarie_id, type, debut, fin, commentaire, statut: 'En attente'
-    })
-    if (error) throw error
-    load()
-  }
+async function soumettre({ salarie_id, type, debut, fin, commentaire, statut='En attente' }) {
+  const { error } = await supabase.from('conges').insert({
+    salarie_id, type, debut, fin, commentaire, statut
+  })
+  if (error) throw error
+  load()
+}
 
   async function changerStatut(id, statut) {
     const { error } = await supabase.from('conges').update({ statut }).eq('id', id)

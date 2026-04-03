@@ -1,0 +1,280 @@
+/* ═══════════════════════════════════════
+   DESIGN SYSTEM — App Congés
+   Style : Coloré & Dynamique
+═══════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap');
+
+:root {
+  --brand-coral:   #FF6B6B;
+  --brand-orange:  #FF8E53;
+  --brand-teal:    #06D6A0;
+  --brand-purple:  #7C3AED;
+  --brand-blue:    #3B82F6;
+  --brand-pink:    #EC4899;
+
+  --grad-primary:  linear-gradient(135deg, #FF6B6B 0%, #FF8E53 50%, #FFC85A 100%);
+  --grad-teal:     linear-gradient(135deg, #06D6A0 0%, #3B82F6 100%);
+  --grad-purple:   linear-gradient(135deg, #7C3AED 0%, #EC4899 100%);
+  --grad-dark:     linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%);
+
+  --surface:       #ffffff;
+  --surface-2:     #f8f7ff;
+  --surface-3:     #f0eeff;
+  --border:        rgba(124, 58, 237, 0.12);
+  --border-hover:  rgba(124, 58, 237, 0.25);
+
+  --text-primary:  #1a1523;
+  --text-secondary:#6b7280;
+  --text-muted:    #9ca3af;
+
+  --shadow-sm:     0 2px 8px rgba(124,58,237,0.08);
+  --shadow-md:     0 4px 20px rgba(124,58,237,0.12);
+  --shadow-lg:     0 8px 40px rgba(124,58,237,0.18);
+  --shadow-color:  0 4px 20px rgba(255,107,107,0.25);
+
+  --radius-sm:     8px;
+  --radius-md:     12px;
+  --radius-lg:     16px;
+  --radius-xl:     24px;
+
+  --font-display:  'Syne', sans-serif;
+  --font-body:     'Plus Jakarta Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(124,58,237,0.2); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.4); }
+
+/* ── Cards ── */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Animations ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  33%       { transform: translateY(-12px) rotate(3deg); }
+  66%       { transform: translateY(-6px) rotate(-2deg); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255,107,107,0.4); }
+  70%  { transform: scale(1);    box-shadow: 0 0 0 10px rgba(255,107,107,0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255,107,107,0); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.animate-slide-up { animation: slide-up 0.4s ease forwards; }
+.animate-float    { animation: float 6s ease-in-out infinite; }
+
+/* ── Gradient text ── */
+.gradient-text {
+  background: var(--grad-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Gradient buttons ── */
+.btn-gradient {
+  background: var(--grad-primary);
+  background-size: 200% auto;
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-position 0.4s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+.btn-gradient:hover {
+  background-position: right center;
+  box-shadow: var(--shadow-color);
+  transform: translateY(-1px);
+}
+.btn-gradient:active { transform: translateY(0); }
+
+/* ── Stat cards ── */
+.stat-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--grad-primary);
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Nav tabs ── */
+.nav-tab {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  position: relative;
+}
+.nav-tab:hover {
+  background: var(--surface-3);
+  color: var(--brand-purple);
+}
+.nav-tab.active {
+  background: white;
+  color: var(--brand-purple);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Badges colorés ── */
+.role-badge {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 99px;
+  letter-spacing: 0.02em;
+}
+
+/* ── Section headers ── */
+.section-label {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+/* ── Input fields ── */
+input, select, textarea {
+  font-family: var(--font-body);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: white;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--brand-purple);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+}
+
+/* ── Header gradient ── */
+.app-header {
+  background: var(--grad-dark);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.15);
+}
+
+/* ── Nav bar ── */
+.nav-bar {
+  background: white;
+  border-bottom: 1px solid var(--border);
+  padding: 6px 20px;
+  display: flex;
+  gap: 4px;
+  position: sticky;
+  top: 57px;
+  z-index: 99;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Conge row ── */
+.conge-row {
+  background: white;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  cursor: pointer;
+}
+.conge-row:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-sm);
+  transform: translateX(2px);
+}
+.conge-row.selected {
+  border-color: var(--brand-purple);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.08);
+}
+
+/* ── Dashboard hero ── */
+.dashboard-hero {
+  border-radius: var(--radius-xl);
+  padding: 24px 28px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+.dashboard-hero::before {
+  content: '';
+  position: absolute;
+  width: 200px; height: 200px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  top: -60px; right: -40px;
+}
+.dashboard-hero::after {
+  content: '';
+  position: absolute;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  bottom: -30px; right: 80px;
+}

@@ -845,24 +845,37 @@ export default function App(){
     try{await addLog(user.id,profile.nom,profile.role,action,details)}catch(e){}
   }
 
-  async function handleChangerStatut(id,statut){
-    const c=conges.find(x=>x.id===id)
-    const sal=c?getSalObj(c,salaries):null
-    await changerStatutRaw(id,statut)
-    const actionLabel=statut==="Refusé"?"refus congé":`validé congé → ${statut}`
-    await logAction(actionLabel,sal?`${sal.nom} — ${c?.type}`:"")
+ async function handleChangerStatut(id,statut){
+  const c=conges.find(x=>x.id===id)
+  const sal=c?getSalObj(c,salaries):null
+  const profil=profiles.find(p=>p.salarie_id===getSalId(c))
+  const roleOwner=profil?.role
+  // Manager → saute directement à Validé RH
+  if(statut==="Validé Manager"&&roleOwner==="Manager"){
+    await changerStatutRaw(id,"Validé RH")
+    await logAction("validé congé → Validé RH (manager)",sal?`${sal.nom} — ${c?.type}`:"")
+    return
   }
+  await changerStatutRaw(id,statut)
+  const actionLabel=statut==="Refusé"?"refus congé":`validé congé → ${statut}`
+  await logAction(actionLabel,sal?`${sal.nom} — ${c?.type}`:"")
+}
   async function handleSupprimer(id){
     const c=conges.find(x=>x.id===id)
     const sal=c?getSalObj(c,salaries):null
     await supprimerRaw(id)
     await logAction("suppression congé",sal?`${sal.nom} — ${c?.type}`:"")
   }
-  async function handleSoumettre(data){
-    const sal=salaries.find(s=>s.id===data.salarie_id)
-    await soumettre(data)
-    await logAction("nouvelle demande de congé",sal?`${sal.nom} — ${data.type} (${data.debut} → ${data.fin})`:"")
-  }
+ async function handleSoumettre(data){
+  const sal=salaries.find(s=>s.id===data.salarie_id)
+  // Statut initial selon le rôle du demandeur
+  let statutInitial="En attente"
+  if(role==="Manager")     statutInitial="Validé Manager"
+  if(role==="RH")          statutInitial="Validé RH"
+  if(role==="Super Admin") statutInitial="Approuvé"
+  await soumettre({...data,statut:statutInitial})
+  await logAction("nouvelle demande de congé",sal?`${sal.nom} — ${data.type} (${data.debut} → ${data.fin})`:"")
+}
   async function handleLogout(){await logAction("déconnexion");logout()}
 
   async function saveSociete(){
@@ -944,22 +957,25 @@ export default function App(){
         <div style={{display:"flex",gap:8}}><button onClick={()=>doDeleteSalarie(salConfirmDel.id)} style={{flex:1,fontSize:13,padding:8,borderRadius:8,background:"#FCEBEB",color:"#501313",border:"0.5px solid #F7C1C1",cursor:"pointer"}}>Supprimer définitivement</button><button onClick={()=>setSalConfirmDel(null)} style={{fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer"}}>Annuler</button></div>
       </Modal>}
 
-      {/* HEADER */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{fontSize:17,fontWeight:500}}>🏢 Congés</div>
-          <div style={{display:"flex",alignItems:"center",gap:6,padding:"4px 10px",borderRadius:20,border:`0.5px solid ${rc.border}`,background:rc.bg}}>
-            <div style={{width:22,height:22,borderRadius:"50%",background:rc.text,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:600,color:rc.bg}}>{initials(profile.nom)}</div>
-            <span style={{fontSize:12,fontWeight:500,color:rc.text}}>{profile.nom}</span>
-            <span style={{fontSize:10,color:"#aaa"}}>· {role}</span>
+     {/* HEADER */}
+      <div style={{background:"linear-gradient(135deg,#1e1b4b 0%,#312e81 45%,#1e3a5f 100%)",padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,boxShadow:"0 2px 20px rgba(0,0,0,0.15)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#FF6B6B,#FF8E53)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,boxShadow:"0 4px 12px rgba(255,107,107,0.4)"}}>🏢</div>
+          <div>
+            <div style={{fontSize:16,fontWeight:800,color:"white",fontFamily:"'Syne',sans-serif",letterSpacing:"-0.02em"}}>Suivi des congés</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",fontWeight:500,letterSpacing:"0.06em",textTransform:"uppercase"}}>Application interne</div>
           </div>
         </div>
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>setTab("form")} style={{fontSize:13,padding:"6px 14px",borderRadius:8,background:"#111",color:"#fff",border:"none",cursor:"pointer"}}>+ Demande</button>
-          <button onClick={handleLogout} style={{fontSize:12,padding:"6px 12px",borderRadius:8,color:"#888",border:"0.5px solid #ddd",background:"transparent",cursor:"pointer"}}>Déconnexion</button>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px",borderRadius:99,background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.15)"}}>
+            <div style={{width:26,height:26,borderRadius:"50%",background:`linear-gradient(135deg,${rc.border},${rc.text})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"white"}}>{initials(profile.nom)}</div>
+            <span style={{fontSize:12,fontWeight:600,color:"white"}}>{profile.nom}</span>
+            <span style={{fontSize:10,color:"rgba(255,255,255,0.5)"}}>· {role}</span>
+          </div>
+          <button onClick={()=>setTab("form")} style={{fontSize:13,padding:"7px 16px",borderRadius:99,background:"linear-gradient(135deg,#FF6B6B,#FF8E53)",color:"white",border:"none",cursor:"pointer",fontWeight:700,boxShadow:"0 4px 12px rgba(255,107,107,0.35)",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>+ Demande</button>
+          <button onClick={handleLogout} style={{fontSize:12,padding:"7px 14px",borderRadius:99,color:"rgba(255,255,255,0.7)",border:"1px solid rgba(255,255,255,0.2)",background:"transparent",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>Déconnexion</button>
         </div>
       </div>
-
       {/* FILTRES */}
       {canAll&&tab!=="salaries"&&tab!=="dashboard"&&tab!=="utilisateurs"&&tab!=="logs"&&(
         <div style={{marginBottom:14,padding:"10px 12px",background:"#f9f9f9",borderRadius:8,border:"0.5px solid #e5e5e5"}}>
@@ -984,9 +1000,13 @@ export default function App(){
         </div>
       )}
 
-      {/* TABS */}
-      <div style={{display:"flex",borderBottom:"0.5px solid #e5e5e5",marginBottom:16,overflowX:"auto"}}>
-        {TABS.map(([key,label,badge])=>tabBtn(key,label,badge||0))}
+    {/* TABS */}
+      <div style={{display:"flex",gap:4,padding:"8px 20px",background:"white",borderBottom:"1px solid rgba(124,58,237,0.1)",overflowX:"auto",boxShadow:"0 2px 10px rgba(0,0,0,0.05)"}}>
+        {TABS.map(([key,label,badge])=>(
+          <button key={key} onClick={()=>setTab(key)} style={{fontSize:13,padding:"7px 16px",borderRadius:99,border:"none",background:tab===key?"linear-gradient(135deg,#7C3AED,#EC4899)":"transparent",color:tab===key?"white":"#6b7280",cursor:"pointer",fontWeight:tab===key?700:500,position:"relative",whiteSpace:"nowrap",transition:"all 0.15s",fontFamily:"'Plus Jakarta Sans',sans-serif",boxShadow:tab===key?"0 4px 12px rgba(124,58,237,0.3)":"none"}}>
+            {label}{badge>0&&<span style={{position:"absolute",top:2,right:2,background:"#FF6B6B",color:"white",borderRadius:99,fontSize:9,padding:"0 4px",lineHeight:"15px",fontWeight:700}}>{badge}</span>}
+          </button>
+        ))}
       </div>
 
       {/* DASHBOARD */}
