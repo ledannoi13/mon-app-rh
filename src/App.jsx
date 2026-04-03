@@ -1351,7 +1351,7 @@ const pendingBadge=useMemo(()=>{
     :isMgr
     ?[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"]]
     :isRH
-    ?[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"]]
+    ?[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"]]
     :[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"],["utilisateurs","Utilisateurs"],["logs","Historique"]]
 
   const ganttMonth=today.getMonth(),ganttYear=today.getFullYear()
