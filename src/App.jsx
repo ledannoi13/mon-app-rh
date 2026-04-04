@@ -213,25 +213,41 @@ function DashboardEmploye({profile,conges,salaries,societes,onNewRequest,soumett
     if(!form.debut||!form.fin||!solde)return null
     const jours=joursOuvrables(form.debut,form.fin)
     if(jours<=0)return null
+
+    // Calcul du solde projeté à la date de début des congés
+    const now=new Date()
+    const debut=new Date(form.debut)
+    const moisRestants=Math.max(0,(debut.getFullYear()-now.getFullYear())*12+(debut.getMonth()-now.getMonth()))
+    const rechargeCpMensuelle=Number((solde.cp_annuel/12).toFixed(2))
+    const rechargeRttMensuelle=Number((solde.rtt_annuel/12).toFixed(2))
+
+    const cpN1Projete=Math.max(solde.cp_n1_acquis-solde.cp_n1_pris,0)
+    const cpNProjetee=Math.max(solde.cp_n_acquis-solde.cp_n_pris,0)+(moisRestants*rechargeCpMensuelle)
+    const totalCpProjete=cpN1Projete+cpNProjetee
+    const rttProjete=Math.max(solde.rtt_acquis-solde.rtt_pris,0)+(moisRestants*rechargeRttMensuelle)
+
+    const infoProjection=moisRestants>0?` (projeté dans ${moisRestants} mois)`:""
+
     if(form.type==="Congés payés"){
-      const cpN1Restant=Math.max(solde.cp_n1_acquis-solde.cp_n1_pris,0)
-      const cpNRestant=Math.max(solde.cp_n_acquis-solde.cp_n_pris,0)
-      const totalCp=cpN1Restant+cpNRestant
-      if(jours>totalCp){
-        const manque=jours-totalCp
-        const rttRestant=Math.max(solde.rtt_acquis-solde.rtt_pris,0)
-        return{type:"warning",jours,manque,text:`⚠️ Solde insuffisant — ${jours}j demandés mais ${totalCp}j CP disponibles (${cpN1Restant}j N-1 + ${cpNRestant}j N). Il manque ${manque}j.`,
-          suggestions:[rttRestant>=manque&&{label:`Utiliser ${manque}j RTT à la place`,type:"RTT"},{label:`Prendre ${manque}j sans solde`,type:"Congé sans solde"}].filter(Boolean)}
+      if(jours>totalCpProjete){
+        const manque=Math.ceil(jours-totalCpProjete)
+        return{type:"warning",jours,manque,
+          text:`⚠️ Solde insuffisant${infoProjection} — ${jours}j demandés mais ${totalCpProjete.toFixed(1)}j CP disponibles. Il manque ${manque}j.`,
+          suggestions:[rttProjete>=manque&&{label:`Utiliser ${manque}j RTT`,type:"RTT"},{label:`Prendre ${manque}j sans solde`,type:"Congé sans solde"}].filter(Boolean)}
       }
+      return{type:"ok",jours,text:`✓ ${jours}j ouvrables — solde suffisant${infoProjection} (${totalCpProjete.toFixed(1)}j CP disponibles)`}
     }
+
     if(form.type==="RTT"){
-      const rttRestant=Math.max(solde.rtt_acquis-solde.rtt_pris,0)
-      if(jours>rttRestant){
-        const manque=jours-rttRestant
-        return{type:"warning",jours,manque,text:`⚠️ Solde RTT insuffisant — ${jours}j demandés mais ${rttRestant}j disponibles. Il manque ${manque}j.`,
+      if(jours>rttProjete){
+        const manque=Math.ceil(jours-rttProjete)
+        return{type:"warning",jours,manque,
+          text:`⚠️ Solde RTT insuffisant${infoProjection} — ${jours}j demandés mais ${rttProjete.toFixed(1)}j disponibles. Il manque ${manque}j.`,
           suggestions:[{label:`Prendre ${manque}j sans solde`,type:"Congé sans solde"}]}
       }
+      return{type:"ok",jours,text:`✓ ${jours}j ouvrables — solde RTT suffisant${infoProjection} (${rttProjete.toFixed(1)}j disponibles)`}
     }
+
     return{type:"ok",jours,text:`✓ ${jours}j ouvrables demandés`}
   }
   const soldeCheck=checkSolde()
@@ -1575,21 +1591,43 @@ const pendingBadge=useMemo(()=>{
     try{await addLog(user.id,profile.nom,profile.role,action,details)}catch(e){}
   }
 
- async function handleChangerStatut(id,statut){
-  const c=conges.find(x=>x.id===id)
-  const sal=c?getSalObj(c,salaries):null
-  const profil=profiles.find(p=>p.salarie_id===getSalId(c))
-  const roleOwner=profil?.role
-  // Manager → saute directement à Validé RH
-  if(statut==="Validé Manager"&&roleOwner==="Manager"){
-    await changerStatutRaw(id,"Validé RH")
-    await logAction("validé congé → Validé RH (manager)",sal?`${sal.nom} — ${c?.type}`:"")
-    return
+  async function handleChangerStatut(id,statut){
+    const c=conges.find(x=>x.id===id)
+    const sal=c?getSalObj(c,salaries):null
+    const profil=profiles.find(p=>p.salarie_id===getSalId(c))
+    const roleOwner=profil?.role
+
+    // Si on approuve, vérifier le solde
+    if(statut==="Approuvé"||statut==="Validé RH"){
+      const{data:solde}=await supabase.from('soldes').select('*').eq('salarie_id',getSalId(c)).single()
+      if(solde&&(c.type==="Congés payés"||c.type==="RTT")){
+        const jours=joursOuvrables(c.debut,c.fin)
+        const now=new Date()
+        const debut=new Date(c.debut)
+        const moisRestants=Math.max(0,(debut.getFullYear()-now.getFullYear())*12+(debut.getMonth()-now.getMonth()))
+        const rechargeCp=Number((solde.cp_annuel/12).toFixed(2))
+        const rechargeRtt=Number((solde.rtt_annuel/12).toFixed(2))
+        const cpProjete=Math.max(solde.cp_n1_acquis-solde.cp_n1_pris,0)+Math.max(solde.cp_n_acquis-solde.cp_n_pris,0)+(moisRestants*rechargeCp)
+        const rttProjete=Math.max(solde.rtt_acquis-solde.rtt_pris,0)+(moisRestants*rechargeRtt)
+        const soldeInsuffisant=(c.type==="Congés payés"&&jours>cpProjete)||(c.type==="RTT"&&jours>rttProjete)
+        if(soldeInsuffisant){
+          const soldeDispo=c.type==="Congés payés"?cpProjete.toFixed(1):rttProjete.toFixed(1)
+          const confirmed=window.confirm(`⚠️ Attention — Solde insuffisant pour ${sal?.nom}\n\n${jours}j demandés mais seulement ${soldeDispo}j disponibles${moisRestants>0?` (projeté dans ${moisRestants} mois)`:""}\n\nVoulez-vous valider quand même ?`)
+          if(!confirmed)return
+        }
+      }
+    }
+
+    // Manager → saute directement à Validé RH
+    if(statut==="Validé Manager"&&roleOwner==="Manager"){
+      await changerStatutRaw(id,"Validé RH")
+      await logAction("validé congé → Validé RH (manager)",sal?`${sal.nom} — ${c?.type}`:"")
+      return
+    }
+    await changerStatutRaw(id,statut)
+    const actionLabel=statut==="Refusé"?"refus congé":`validé congé → ${statut}`
+    await logAction(actionLabel,sal?`${sal.nom} — ${c?.type}`:"")
   }
-  await changerStatutRaw(id,statut)
-  const actionLabel=statut==="Refusé"?"refus congé":`validé congé → ${statut}`
-  await logAction(actionLabel,sal?`${sal.nom} — ${c?.type}`:"")
-}
   async function handleSupprimer(id){
     const c=conges.find(x=>x.id===id)
     const sal=c?getSalObj(c,salaries):null
