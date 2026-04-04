@@ -721,8 +721,12 @@ function PanelUtilisateurs({profiles,salaries,societes,loading,updateProfile,del
     await logAction(`Création utilisateur : ${nom} (${role})`,email)
     setCreateSuccess(`✓ Compte créé ! ${nom} peut se connecter avec ${email}`)
     setCreateForm({nom:"",email:"",password:"",role:"Employé",societe_id:"",salarie_id:""})
-  }catch(e){
+}catch(e){
     setCreateError(e.message||"Erreur lors de la création")
+    // Nettoie le salarié créé si le profil a échoué
+    if(salarie_id){
+      await supabase.from('salaries').delete().eq('id',salarie_id)
+    }
   }
   setCreateLoading(false)
 }
