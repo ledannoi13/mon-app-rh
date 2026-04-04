@@ -1699,7 +1699,7 @@ const pendingBadge=useMemo(()=>{
   const COL_W=20,ROW_H=34,LABEL_W=140
 
   return(
-    <div style={{fontFamily:"system-ui,sans-serif",color:"#111",padding:"0 24px 24px",maxWidth:1200,margin:"0 auto"}}>
+    <div style={{fontFamily:"system-ui,sans-serif",color:"#111",padding:"0 24px 24px",width:"100%",boxSizing:"border-box"}}>
 
       {/* MODALS SOCIÉTÉ */}
       {(socModal==="create"||socModal?.id)&&<Modal title={socModal==="create"?"Nouvelle société":"Modifier"} onClose={()=>{setSocModal(null);setSocNom("")}}>
