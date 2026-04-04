@@ -180,54 +180,121 @@ function DashboardEmploye({profile,conges,salaries,onNewRequest}){
   const enCours=mesConges.filter(c=>isActiveNow(c))
   const enAttente=mesConges.filter(c=>["En attente","Validé Manager","Validé RH"].includes(c.statut))
   const prochains=mesConges.filter(c=>new Date(c.debut)>today&&c.statut==="Approuvé").sort((a,b)=>new Date(a.debut)-new Date(b.debut))
-  const SOLDES={"Congés payés":{total:25,couleur:"#3B8BD4"},"RTT":{total:12,couleur:"#1D9E75"}}
-  const joursPris = type => mesConges.filter(c=>c.type===type&&c.statut==="Approuvé").reduce((a,c)=>a+joursOuvrables(c.debut,c.fin),0)
+
+  // Chargement des vrais soldes depuis Supabase
+  const [solde, setSolde] = useState(null)
+  useEffect(()=>{
+    if(!profile.salarie_id) return
+    supabase.from('soldes').select('*').eq('salarie_id', profile.salarie_id).single()
+      .then(({data})=>setSolde(data))
+  },[profile.salarie_id])
+
+  const annee = new Date().getFullYear()
+
   return(
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      {/* Bandeau de bienvenue */}
       <div style={{background:"#F1EFE8",border:"0.5px solid #e8e8e8",borderRadius:12,padding:"18px 20px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
         <Avatar nom={profile.nom} size={44} colorIdx={5}/>
         <div>
           <div style={{fontSize:16,fontWeight:500}}>Bonjour, {profile.nom.split(" ")[0]} 👋</div>
-          <div style={{fontSize:13,color:"#888",marginTop:2}}>{enCours.length>0?`En congé — retour le ${fmtDate(enCours[0].fin)}`:prochains.length>0?`Prochain congé : ${fmtShort(prochains[0].debut)} → ${fmtShort(prochains[0].fin)}`:"Aucun congé approuvé à venir"}</div>
+          <div style={{fontSize:13,color:"#888",marginTop:2}}>
+            {enCours.length>0?`En congé — retour le ${fmtDate(enCours[0].fin)}`:
+             prochains.length>0?`Prochain congé : ${fmtShort(prochains[0].debut)} → ${fmtShort(prochains[0].fin)}`:
+             "Aucun congé approuvé à venir"}
+          </div>
         </div>
-        <button onClick={onNewRequest} style={{marginLeft:"auto",fontSize:13,padding:"8px 16px",borderRadius:8,background:"#111",color:"#fff",border:"none",cursor:"pointer"}}>+ Demande</button>
+        <button onClick={onNewRequest} style={{marginLeft:"auto",fontSize:13,padding:"8px 16px",borderRadius:8,background:"linear-gradient(135deg,#FF6B6B,#FF8E53)",color:"#fff",border:"none",cursor:"pointer",fontWeight:600,boxShadow:"0 4px 12px rgba(255,107,107,0.3)"}}>+ Demande</button>
       </div>
+
+      {/* Soldes réels */}
       <Card>
         <SectionTitle>Mes soldes</SectionTitle>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          {Object.entries(SOLDES).map(([type,{total,couleur}])=>{
-            const pris=joursPris(type),restant=total-pris
-            const enAttenteCe=mesConges.filter(c=>c.type===type&&["En attente","Validé Manager","Validé RH"].includes(c.statut)).reduce((a,c)=>a+diffDays(c.debut,c.fin)+1,0)
-            return(<div key={type} style={{padding:"12px 14px",borderRadius:10,border:`0.5px solid ${TC[type].light}`,background:TC[type].light+"55"}}>
-              <div style={{fontSize:11,color:"#888",marginBottom:2}}>{type}</div>
-              <div style={{fontSize:28,fontWeight:500,color:couleur,lineHeight:1}}>{restant}j</div>
-              <div style={{fontSize:11,color:"#bbb",marginBottom:6}}>restants sur {total}j</div>
-              <ProgressBar value={pris} max={total} color={couleur}/>
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:11,color:"#aaa"}}><span>{pris}j pris</span>{enAttenteCe>0&&<span style={{color:"#FAC775"}}>⏳ {enAttenteCe}j en attente</span>}</div>
-            </div>)
-          })}
-        </div>
+        {!solde?(
+          <div style={{textAlign:"center",padding:"20px 0",color:"#bbb",fontSize:13}}>Chargement des soldes...</div>
+        ):(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+            {/* CP Année N */}
+            {[
+              {
+                label:`CP Année ${annee} (N)`,
+                acquis: solde.cp_n_acquis,
+                pris:   solde.cp_n_pris,
+                color:  "#3B8BD4",
+                bg:     "#E6F1FB",
+              },
+              {
+                label:`CP Année ${annee-1} (N-1)`,
+                acquis: solde.cp_n1_acquis,
+                pris:   solde.cp_n1_pris,
+                color:  "#D85A30",
+                bg:     "#FAECE7",
+                alerte: solde.cp_n1_acquis - solde.cp_n1_pris > 0 && new Date().getMonth() >= 4,
+              },
+              {
+                label:"RTT",
+                acquis: solde.rtt_acquis,
+                pris:   solde.rtt_pris,
+                color:  "#1D9E75",
+                bg:     "#E1F5EE",
+              },
+            ].map(({label,acquis,pris,color,bg,alerte})=>{
+              const restant = Math.max(acquis - pris, 0)
+              const pct = acquis > 0 ? Math.min(Math.round((pris/acquis)*100),100) : 0
+              return(
+                <div key={label} style={{padding:"14px 16px",borderRadius:12,background:bg,border:`0.5px solid ${color}33`,position:"relative"}}>
+                  {alerte&&<div style={{position:"absolute",top:8,right:8,fontSize:10,padding:"1px 6px",borderRadius:20,background:"#FCEBEB",color:"#501313"}}>⚠ expire 31/05</div>}
+                  <div style={{fontSize:11,color:"#888",marginBottom:4,fontWeight:500}}>{label}</div>
+                  <div style={{fontSize:32,fontWeight:700,color,lineHeight:1,marginBottom:4}}>{restant}j</div>
+                  <div style={{fontSize:11,color:"#aaa",marginBottom:8}}>restants</div>
+                  <div style={{height:5,background:"rgba(0,0,0,0.08)",borderRadius:3,overflow:"hidden",marginBottom:8}}>
+                    <div style={{height:"100%",width:pct+"%",background:color,borderRadius:3,transition:"width .3s"}}/>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#888"}}>
+                    <span>{acquis}j acquis</span>
+                    <span>{pris}j pris</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </Card>
+
+      {/* Demandes en cours de traitement */}
       {enAttente.length>0&&<Card>
         <SectionTitle>En cours de traitement</SectionTitle>
         {enAttente.map(c=>{
           const step=["En attente","Validé Manager","Validé RH","Approuvé"].indexOf(c.statut)
           return(<div key={c.id} style={{padding:"12px 0",borderBottom:"0.5px solid #f5f5f5"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:6}}><div><TypeBadge type={c.type}/><span style={{fontSize:12,color:"#888",marginLeft:8}}>{fmtShort(c.debut)} → {fmtShort(c.fin)}</span></div><Badge statut={c.statut}/></div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:6}}>
+              <div><TypeBadge type={c.type}/><span style={{fontSize:12,color:"#888",marginLeft:8}}>{fmtShort(c.debut)} → {fmtShort(c.fin)}</span></div>
+              <Badge statut={c.statut}/>
+            </div>
             <div style={{display:"flex",alignItems:"center"}}>
-              {["Soumis","Manager","RH","Approuvé"].map((lbl,i)=>(<div key={i} style={{display:"flex",alignItems:"center",flex:i<3?1:0}}>
-                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}><div style={{width:20,height:20,borderRadius:"50%",background:i<=step?"#111":"#e8e8e8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:i<=step?"#fff":"#bbb",fontWeight:500}}>{i<step?"✓":i+1}</div><div style={{fontSize:9,color:i<=step?"#111":"#bbb",whiteSpace:"nowrap"}}>{lbl}</div></div>
-                {i<3&&<div style={{flex:1,height:2,background:i<step?"#111":"#e8e8e8",marginBottom:14,minWidth:10}}/>}
-              </div>))}
+              {["Soumis","Manager","RH","Approuvé"].map((lbl,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",flex:i<3?1:0}}>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                    <div style={{width:20,height:20,borderRadius:"50%",background:i<=step?"#111":"#e8e8e8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:i<=step?"#fff":"#bbb",fontWeight:500}}>{i<step?"✓":i+1}</div>
+                    <div style={{fontSize:9,color:i<=step?"#111":"#bbb",whiteSpace:"nowrap"}}>{lbl}</div>
+                  </div>
+                  {i<3&&<div style={{flex:1,height:2,background:i<step?"#111":"#e8e8e8",marginBottom:14,minWidth:10}}/>}
+                </div>
+              ))}
             </div>
           </div>)
         })}
       </Card>}
+
+      {/* Historique */}
       <Card>
         <SectionTitle>Historique</SectionTitle>
         {mesConges.length===0&&<div style={{textAlign:"center",padding:"20px 0",color:"#bbb",fontSize:13}}>Aucune demande</div>}
         {mesConges.slice().sort((a,b)=>new Date(b.debut)-new Date(a.debut)).slice(0,6).map(c=>(
-          <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:"0.5px solid #f5f5f5",flexWrap:"wrap"}}><div style={{flex:1}}><TypeBadge type={c.type}/><span style={{fontSize:12,color:"#888",marginLeft:8}}>{fmtShort(c.debut)} → {fmtShort(c.fin)}</span></div><Badge statut={c.statut}/></div>
+          <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:"0.5px solid #f5f5f5",flexWrap:"wrap"}}>
+            <div style={{flex:1}}><TypeBadge type={c.type}/><span style={{fontSize:12,color:"#888",marginLeft:8}}>{fmtShort(c.debut)} → {fmtShort(c.fin)} · {joursOuvrables(c.debut,c.fin)}j ouvrables</span></div>
+            <Badge statut={c.statut}/>
+          </div>
         ))}
       </Card>
     </div>
@@ -1364,10 +1431,10 @@ const pendingBadge=useMemo(()=>{
   const TABS=isEmp
     ?[["dashboard","Mon espace"],["form","+ Demande"]]
     :isMgr
-    ?[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"]]
+    ?[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Gantt"]]
     :isRH
-    ?[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"]]
-    :[["dashboard","Tableau de bord"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"],["utilisateurs","Utilisateurs"],["logs","Historique"]]
+    ?[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"]]
+    :[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"],["utilisateurs","Utilisateurs"],["logs","Historique"]]
 
   const ganttMonth=today.getMonth(),ganttYear=today.getFullYear()
   const totalDays=new Date(ganttYear,ganttMonth+1,0).getDate()
@@ -1463,7 +1530,10 @@ const pendingBadge=useMemo(()=>{
       {tab==="dashboard"&&isMgr&&<DashboardManager profile={profile} conges={conges} salaries={salaries} societes={societes} changerStatut={handleChangerStatut}/>}
       {tab==="dashboard"&&isRH&&<DashboardRH profile={profile} conges={conges} salaries={salaries} societes={societes} changerStatut={handleChangerStatut}/>}
       {tab==="dashboard"&&isAdmin&&<DashboardSuperAdmin profile={profile} conges={conges} salaries={salaries} societes={societes} changerStatut={handleChangerStatut} profiles={profiles} logs={logs}/>}
-
+      
+      {/* MES CONGÉS */}
+      {tab==="mescongés"&&!isEmp&&<DashboardEmploye profile={profile} conges={conges} salaries={salaries} onNewRequest={()=>setTab("form")}/>}
+     
       {/* FORM */}
       {tab==="form"&&<div style={{background:"#fff",border:"0.5px solid #e5e5e5",borderRadius:12,padding:20}}>
         <div style={{fontSize:15,fontWeight:500,marginBottom:14}}>Nouvelle demande de congé</div>
