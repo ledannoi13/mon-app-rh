@@ -1699,7 +1699,7 @@ const pendingBadge=useMemo(()=>{
   const COL_W=20,ROW_H=34,LABEL_W=140
 
   return(
-    <div style={{fontFamily:"system-ui,sans-serif",color:"#111",padding:"0 24px 24px",width:"100%",boxSizing:"border-box"}}>
+    <div style={{fontFamily:"system-ui,sans-serif",color:"#111",minHeight:"100vh",background:"#f8f7ff"}}>
 
       {/* MODALS SOCIÉTÉ */}
       {(socModal==="create"||socModal?.id)&&<Modal title={socModal==="create"?"Nouvelle société":"Modifier"} onClose={()=>{setSocModal(null);setSocNom("")}}>
@@ -1779,7 +1779,9 @@ const pendingBadge=useMemo(()=>{
           </button>
         ))}
       </div>
-
+      <div style={{padding:"16px 32px"}}>
+        
+      </div>
       {/* DASHBOARD */}
       {tab==="dashboard"&&isEmp&&<DashboardEmploye profile={profile} conges={conges} salaries={salaries} onNewRequest={()=>setTab("form")} soumettre={soumettre} role={role}/>}
       {tab==="dashboard"&&isMgr&&<DashboardManager profile={profile} conges={conges} salaries={salaries} societes={societes} changerStatut={handleChangerStatut}/>}
