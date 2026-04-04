@@ -487,11 +487,49 @@ function PanelUtilisateurs({profiles,salaries,societes,loading,updateProfile,del
 
   async function handleCreate(){
     setCreateError(""); setCreateLoading(true); setCreateSuccess("")
-    const{nom,email,password,role,societe_id,salarie_id}=createForm
+    const{nom,email,password,role,societe_id}=createForm
     if(!nom.trim()||!email.trim()||password.length<6){
       setCreateError("Nom, email et mot de passe (6 caractères min) sont obligatoires.")
       setCreateLoading(false); return
     }
+    try{
+      const{createClient}=await import('@supabase/supabase-js')
+      const tmpClient=createClient(
+        import.meta.env.VITE_SUPABASE_URL||supabase.supabaseUrl,
+        import.meta.env.VITE_SUPABASE_ANON_KEY||supabase.supabaseKey,
+        {auth:{storage:{getItem:()=>null,setItem:()=>{},removeItem:()=>{}},persistSession:false,autoRefreshToken:false}}
+      )
+      const{data,error}=await tmpClient.auth.signUp({email:email.trim(),password})
+      if(error)throw error
+      if(!data?.user)throw new Error("Utilisateur non créé")
+
+      // Crée automatiquement un salarié pour tous les rôles sauf si déjà lié
+      let salarie_id=createForm.salarie_id||null
+      if(!salarie_id&&(role==="Manager"||role==="RH"||role==="Super Admin"||role==="Employé")){
+        const socId=societe_id||null
+        const{data:salData,error:salErr}=await supabase
+          .from('salaries')
+          .insert({nom:nom.trim(),email:email.trim(),societe_id:socId})
+          .select()
+          .single()
+        if(salErr)throw salErr
+        salarie_id=salData.id
+      }
+
+    // Crée le profil avec le salarié lié
+    const profileData={id:data.user.id,nom:nom.trim(),role,salarie_id}
+    if(role==="Manager")profileData.societe_id=societe_id||null
+    const{error:profErr}=await supabase.from('profiles').insert(profileData)
+    if(profErr)throw profErr
+
+    await logAction(`Création utilisateur : ${nom} (${role})`,email)
+    setCreateSuccess(`✓ Compte créé ! ${nom} peut se connecter avec ${email}`)
+    setCreateForm({nom:"",email:"",password:"",role:"Employé",societe_id:"",salarie_id:""})
+  }catch(e){
+    setCreateError(e.message||"Erreur lors de la création")
+  }
+  setCreateLoading(false)
+}
     try{
       // Client secondaire en mémoire — ne déconnecte pas l'admin
       const{createClient}=await import('@supabase/supabase-js')
@@ -542,7 +580,7 @@ function PanelUtilisateurs({profiles,salaries,societes,loading,updateProfile,del
                 {ROLES.map(r=><option key={r}>{r}</option>)}
               </select>
             </div>
-            {createForm.role==="Manager"&&(
+            {(createForm.role==="Manager"||createForm.role==="RH"||createForm.role==="Employé")&&(
               <div>
                 <label style={{fontSize:12,color:"#888",display:"block",marginBottom:4}}>Société</label>
                 <select value={createForm.societe_id} onChange={e=>setCreateForm(f=>({...f,societe_id:e.target.value}))} style={{width:"100%",fontSize:13,padding:"7px 10px",border:"0.5px solid #ddd",borderRadius:6}}>
