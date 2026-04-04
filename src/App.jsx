@@ -297,8 +297,9 @@ function DashboardEmploye({profile,conges,salaries,societes,onNewRequest,soumett
 
       {/* Formulaire */}
       {showForm&&(
-        <div style={{background:"#fff",border:"1px solid #e8e8e8",borderRadius:16,padding:"20px 24px"}}>
-          <div style={{fontSize:15,fontWeight:600,marginBottom:16}}>Nouvelle demande de congé</div>
+        <div style={{background:"#fff",border:"1px solid #e8e8e8",borderRadius:20,padding:"28px 32px",boxShadow:"0 4px 24px rgba(124,58,237,0.08)"}}>
+          <div style={{fontSize:18,fontWeight:700,marginBottom:6,fontFamily:"'Syne',sans-serif"}}>Nouvelle demande de congé</div>
+          <div style={{fontSize:13,color:"#9ca3af",marginBottom:20}}>Remplissez les informations ci-dessous pour soumettre votre demande</div>
           <form onSubmit={handleSubmit}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
               <div style={{gridColumn:"1/-1"}}>
@@ -1698,7 +1699,7 @@ const pendingBadge=useMemo(()=>{
   const COL_W=20,ROW_H=34,LABEL_W=140
 
   return(
-    <div style={{fontFamily:"system-ui,sans-serif",color:"#111",padding:"12px 16px",maxWidth:980,margin:"0 auto"}}>
+    <div style={{fontFamily:"system-ui,sans-serif",color:"#111",padding:"0 24px 24px",maxWidth:1200,margin:"0 auto"}}>
 
       {/* MODALS SOCIÉTÉ */}
       {(socModal==="create"||socModal?.id)&&<Modal title={socModal==="create"?"Nouvelle société":"Modifier"} onClose={()=>{setSocModal(null);setSocNom("")}}>
