@@ -172,14 +172,329 @@ function CongeRow({c,salaries,societes,onAction,actionsAllowed=[]}){
       )}
     </div>
   )
-}
 
-/* ═══ DASHBOARD EMPLOYÉ ═══ */
-function DashboardEmploye({profile,conges,salaries,onNewRequest}){
+/* ═══ ESPACE SALARIÉ COMPLET ═══ */
+function DashboardEmploye({profile,conges,salaries,societes,onNewRequest,soumettre,role}){
   const mesConges=conges.filter(c=>getSalId(c)===profile.salarie_id)
   const enCours=mesConges.filter(c=>isActiveNow(c))
   const enAttente=mesConges.filter(c=>["En attente","Validé Manager","Validé RH"].includes(c.statut))
   const prochains=mesConges.filter(c=>new Date(c.debut)>today&&c.statut==="Approuvé").sort((a,b)=>new Date(a.debut)-new Date(b.debut))
+
+  // Soldes réels
+  const [solde,setSolde]=useState(null)
+  useEffect(()=>{
+    if(!profile.salarie_id)return
+    supabase.from('soldes').select('*').eq('salarie_id',profile.salarie_id).single()
+      .then(({data})=>setSolde(data))
+  },[profile.salarie_id])
+
+  // Formulaire
+  const [showForm,setShowForm]=useState(false)
+  const [form,setForm]=useState({type:"Congés payés",debut:"",fin:"",commentaire:""})
+  const [formMsg,setFormMsg]=useState(null)
+  const [submitLoading,setSubmitLoading]=useState(false)
+
+  // Calendrier
+  const [calMonth,setCalMonth]=useState(today.getMonth())
+  const [calYear,setCalYear]=useState(today.getFullYear())
+  const monthNames=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"]
+  const calTotalDays=new Date(calYear,calMonth+1,0).getDate()
+  const congesDuMois=mesConges.filter(c=>{
+    const d=new Date(c.debut),f=new Date(c.fin)
+    return d<=new Date(calYear,calMonth,calTotalDays,23,59)&&f>=new Date(calYear,calMonth,1)
+  })
+  const isCurrentMonth=calMonth===today.getMonth()&&calYear===today.getFullYear()
+  const COL_W=28,ROW_H=40,LABEL_W=100
+  const annee=new Date().getFullYear()
+
+  // Vérifie le solde
+  function checkSolde(){
+    if(!form.debut||!form.fin||!solde)return null
+    const jours=joursOuvrables(form.debut,form.fin)
+    if(jours<=0)return null
+    if(form.type==="Congés payés"){
+      const cpN1Restant=Math.max(solde.cp_n1_acquis-solde.cp_n1_pris,0)
+      const cpNRestant=Math.max(solde.cp_n_acquis-solde.cp_n_pris,0)
+      const totalCp=cpN1Restant+cpNRestant
+      if(jours>totalCp){
+        const manque=jours-totalCp
+        const rttRestant=Math.max(solde.rtt_acquis-solde.rtt_pris,0)
+        return{type:"warning",jours,manque,text:`⚠️ Solde insuffisant — ${jours}j demandés mais ${totalCp}j CP disponibles (${cpN1Restant}j N-1 + ${cpNRestant}j N). Il manque ${manque}j.`,
+          suggestions:[rttRestant>=manque&&{label:`Utiliser ${manque}j RTT à la place`,type:"RTT"},{label:`Prendre ${manque}j sans solde`,type:"Congé sans solde"}].filter(Boolean)}
+      }
+    }
+    if(form.type==="RTT"){
+      const rttRestant=Math.max(solde.rtt_acquis-solde.rtt_pris,0)
+      if(jours>rttRestant){
+        const manque=jours-rttRestant
+        return{type:"warning",jours,manque,text:`⚠️ Solde RTT insuffisant — ${jours}j demandés mais ${rttRestant}j disponibles. Il manque ${manque}j.`,
+          suggestions:[{label:`Prendre ${manque}j sans solde`,type:"Congé sans solde"}]}
+      }
+    }
+    return{type:"ok",jours,text:`✓ ${jours}j ouvrables demandés`}
+  }
+  const soldeCheck=checkSolde()
+
+  async function handleSubmit(e){
+    e.preventDefault()
+    if(!form.debut||!form.fin||new Date(form.fin)<new Date(form.debut)){setFormMsg({text:"Dates invalides",type:"error"});return}
+    setSubmitLoading(true)
+    let statutInitial="En attente"
+    if(role==="Manager")statutInitial="Validé Manager"
+    if(role==="RH")statutInitial="Validé RH"
+    if(role==="Super Admin")statutInitial="Approuvé"
+    await soumettre({salarie_id:profile.salarie_id,type:form.type,debut:form.debut,fin:form.fin,commentaire:form.commentaire,statut:statutInitial})
+    const{data}=await supabase.from('soldes').select('*').eq('salarie_id',profile.salarie_id).single()
+    setSolde(data)
+    setForm({type:"Congés payés",debut:"",fin:"",commentaire:""})
+    setFormMsg({text:"✓ Demande soumise avec succès !",type:"success"})
+    setShowForm(false)
+    setTimeout(()=>setFormMsg(null),3000)
+    setSubmitLoading(false)
+  }
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+
+      {formMsg&&<div style={{padding:"10px 16px",borderRadius:8,fontSize:13,fontWeight:500,
+        background:formMsg.type==="error"?"#FCEBEB":formMsg.type==="success"?"#E1F5EE":"#FAEEDA",
+        color:formMsg.type==="error"?"#501313":formMsg.type==="success"?"#085041":"#633806"}}>{formMsg.text}</div>}
+
+      {/* Bandeau bienvenue */}
+      <div style={{background:"linear-gradient(135deg,#1e1b4b,#312e81)",borderRadius:16,padding:"20px 24px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",width:120,height:120,borderRadius:"50%",background:"rgba(255,255,255,0.06)",top:-30,right:40}}/>
+        <div style={{width:48,height:48,borderRadius:"50%",background:"linear-gradient(135deg,#FF6B6B,#FF8E53)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:700,color:"#fff",flexShrink:0}}>{initials(profile.nom)}</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:18,fontWeight:700,color:"white",fontFamily:"'Syne',sans-serif"}}>Bonjour, {profile.nom.split(" ")[0]} 👋</div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,0.6)",marginTop:2}}>
+            {enCours.length>0?`🌴 En congé — retour le ${fmtDate(enCours[0].fin)}`:prochains.length>0?`⏳ Prochain : ${fmtShort(prochains[0].debut)} → ${fmtShort(prochains[0].fin)}`:"Aucun congé approuvé à venir"}
+          </div>
+        </div>
+        <button onClick={()=>setShowForm(f=>!f)} style={{fontSize:13,padding:"10px 20px",borderRadius:99,background:"linear-gradient(135deg,#FF6B6B,#FF8E53)",color:"white",border:"none",cursor:"pointer",fontWeight:700,boxShadow:"0 4px 12px rgba(255,107,107,0.4)",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>
+          {showForm?"✕ Fermer":"+ Nouvelle demande"}
+        </button>
+      </div>
+
+      {/* Formulaire */}
+      {showForm&&(
+        <div style={{background:"#fff",border:"1px solid #e8e8e8",borderRadius:16,padding:"20px 24px"}}>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:16}}>Nouvelle demande de congé</div>
+          <form onSubmit={handleSubmit}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+              <div style={{gridColumn:"1/-1"}}>
+                <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:6}}>TYPE DE CONGÉ</label>
+                <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                  {TYPES.map(t=>(
+                    <button type="button" key={t} onClick={()=>{setForm(f=>({...f,type:t}));setFormMsg(null)}}
+                      style={{fontSize:12,padding:"6px 14px",borderRadius:99,border:`1.5px solid ${form.type===t?TC[t].bg:"#e5e7eb"}`,
+                        background:form.type===t?TC[t].light:"white",color:form.type===t?TC[t].bg:"#888",
+                        cursor:"pointer",fontWeight:form.type===t?600:400}}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>DATE DE DÉBUT</label>
+                <input type="date" value={form.debut} onChange={e=>{setForm(f=>({...f,debut:e.target.value}));setFormMsg(null)}} required
+                  style={{width:"100%",fontSize:13,padding:"8px 12px",border:"1.5px solid #e5e7eb",borderRadius:8,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>DATE DE FIN</label>
+                <input type="date" value={form.fin} onChange={e=>{setForm(f=>({...f,fin:e.target.value}));setFormMsg(null)}} required
+                  style={{width:"100%",fontSize:13,padding:"8px 12px",border:"1.5px solid #e5e7eb",borderRadius:8,boxSizing:"border-box"}}/>
+              </div>
+              <div style={{gridColumn:"1/-1"}}>
+                <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>COMMENTAIRE (optionnel)</label>
+                <textarea value={form.commentaire} onChange={e=>setForm(f=>({...f,commentaire:e.target.value}))} rows={2}
+                  style={{width:"100%",fontSize:13,padding:"8px 12px",border:"1.5px solid #e5e7eb",borderRadius:8,boxSizing:"border-box",resize:"vertical"}}/>
+              </div>
+            </div>
+
+            {/* Indicateur solde */}
+            {soldeCheck&&(
+              <div style={{padding:"10px 14px",borderRadius:10,marginBottom:12,
+                background:soldeCheck.type==="ok"?"#E1F5EE":"#FAEEDA",
+                border:`0.5px solid ${soldeCheck.type==="ok"?"#5DCAA5":"#FAC775"}`}}>
+                <div style={{fontSize:13,fontWeight:500,color:soldeCheck.type==="ok"?"#085041":"#633806",marginBottom:soldeCheck.suggestions?.length?8:0}}>
+                  {soldeCheck.text}
+                </div>
+                {soldeCheck.suggestions?.length>0&&(
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6,alignItems:"center"}}>
+                    <span style={{fontSize:11,color:"#888"}}>Suggestion :</span>
+                    {soldeCheck.suggestions.map(s=>(
+                      <button type="button" key={s.label} onClick={()=>setForm(f=>({...f,type:s.type}))}
+                        style={{fontSize:11,padding:"3px 10px",borderRadius:20,background:"white",
+                          border:`0.5px solid ${TC[s.type]?.bg||"#888"}`,color:TC[s.type]?.bg||"#888",cursor:"pointer",fontWeight:500}}>
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{display:"flex",gap:8}}>
+              <button type="submit" disabled={submitLoading}
+                style={{flex:1,fontSize:13,padding:"10px",borderRadius:10,
+                  background:submitLoading?"#d1d5db":"linear-gradient(135deg,#7C3AED,#EC4899)",
+                  color:"white",border:"none",cursor:submitLoading?"not-allowed":"pointer",
+                  fontWeight:600,boxShadow:submitLoading?"none":"0 4px 12px rgba(124,58,237,0.3)"}}>
+                {submitLoading?"⏳ Envoi...":"Soumettre la demande"}
+              </button>
+              <button type="button" onClick={()=>{setShowForm(false);setFormMsg(null)}}
+                style={{fontSize:13,padding:"10px 16px",borderRadius:10,cursor:"pointer",border:"1px solid #e5e7eb"}}>
+                Annuler
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Soldes */}
+      <Card>
+        <SectionTitle>Mes soldes</SectionTitle>
+        {!solde?(
+          <div style={{textAlign:"center",padding:"20px 0",color:"#bbb",fontSize:13}}>Chargement...</div>
+        ):(
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+            {[
+              {label:`CP ${annee} (N)`,acquis:solde.cp_n_acquis,pris:solde.cp_n_pris,color:"#3B8BD4",bg:"#E6F1FB"},
+              {label:`CP ${annee-1} (N-1)`,acquis:solde.cp_n1_acquis,pris:solde.cp_n1_pris,color:"#D85A30",bg:"#FAECE7",
+               alerte:solde.cp_n1_acquis-solde.cp_n1_pris>0&&new Date().getMonth()>=4},
+              {label:"RTT",acquis:solde.rtt_acquis,pris:solde.rtt_pris,color:"#1D9E75",bg:"#E1F5EE"},
+            ].map(({label,acquis,pris,color,bg,alerte})=>{
+              const restant=Math.max(acquis-pris,0)
+              const pct=acquis>0?Math.min(Math.round((pris/acquis)*100),100):0
+              return(
+                <div key={label} style={{padding:"14px 16px",borderRadius:12,background:bg,border:`0.5px solid ${color}33`,position:"relative"}}>
+                  {alerte&&<div style={{position:"absolute",top:8,right:8,fontSize:10,padding:"1px 6px",borderRadius:20,background:"#FCEBEB",color:"#501313"}}>⚠ expire 31/05</div>}
+                  <div style={{fontSize:11,color:"#888",marginBottom:4,fontWeight:500}}>{label}</div>
+                  <div style={{fontSize:32,fontWeight:700,color,lineHeight:1,marginBottom:4}}>{restant}j</div>
+                  <div style={{fontSize:11,color:"#aaa",marginBottom:8}}>restants</div>
+                  <div style={{height:5,background:"rgba(0,0,0,0.08)",borderRadius:3,overflow:"hidden",marginBottom:8}}>
+                    <div style={{height:"100%",width:pct+"%",background:color,borderRadius:3}}/>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#aaa"}}>
+                    <span>{acquis}j acquis</span><span>{pris}j pris</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </Card>
+
+      {/* Calendrier personnel */}
+      <Card>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+          <SectionTitle>Mon calendrier</SectionTitle>
+          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+            <button onClick={()=>{if(calMonth===0){setCalMonth(11);setCalYear(y=>y-1)}else setCalMonth(m=>m-1)}}
+              style={{width:28,height:28,borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+            <span style={{fontSize:13,fontWeight:500,minWidth:120,textAlign:"center"}}>{monthNames[calMonth]} {calYear}</span>
+            <button onClick={()=>{if(calMonth===11){setCalMonth(0);setCalYear(y=>y+1)}else setCalMonth(m=>m+1)}}
+              style={{width:28,height:28,borderRadius:6,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+            {!isCurrentMonth&&<button onClick={()=>{setCalMonth(today.getMonth());setCalYear(today.getFullYear())}}
+              style={{fontSize:11,color:"#7C3AED",background:"none",border:"none",cursor:"pointer"}}>← Auj.</button>}
+          </div>
+        </div>
+        {congesDuMois.length===0?(
+          <div style={{textAlign:"center",padding:"24px 0",color:"#bbb",fontSize:13}}>Aucun congé en {monthNames[calMonth]} {calYear}</div>
+        ):(
+          <div style={{overflowX:"auto"}}>
+            <div style={{minWidth:LABEL_W+calTotalDays*COL_W}}>
+              <div style={{display:"flex",marginBottom:4,paddingLeft:LABEL_W}}>
+                {Array.from({length:calTotalDays},(_,i)=>{
+                  const d=new Date(calYear,calMonth,i+1)
+                  const isWE=d.getDay()===0||d.getDay()===6
+                  const isToday2=today.toDateString()===d.toDateString()
+                  const dayNames=["D","L","M","M","J","V","S"]
+                  return(
+                    <div key={i} style={{width:COL_W,flexShrink:0,textAlign:"center",background:isToday2?"#7C3AED":isWE?"#f5f5f5":"transparent",borderRadius:isToday2?4:2,padding:"1px 0"}}>
+                      <div style={{fontSize:9,color:isToday2?"#fff":isWE?"#ccc":"#ccc"}}>{dayNames[d.getDay()]}</div>
+                      <div style={{fontSize:11,fontWeight:isToday2?700:400,color:isToday2?"#fff":isWE?"#ccc":"#999"}}>{i+1}</div>
+                    </div>
+                  )
+                })}
+              </div>
+              {TYPES.filter(t=>congesDuMois.some(c=>c.type===t)).map(t=>{
+                const cType=congesDuMois.filter(c=>c.type===t)
+                return(
+                  <div key={t} style={{display:"flex",alignItems:"center",minHeight:ROW_H,marginBottom:4}}>
+                    <div style={{width:LABEL_W,flexShrink:0,fontSize:10,color:TC[t].bg,fontWeight:600,paddingRight:8,textAlign:"right"}}>{t.split(" ")[0]}</div>
+                    <div style={{flex:1,position:"relative",height:ROW_H,background:"#fafafa",borderRadius:8}}>
+                      {cType.map(c=>{
+                        const ms=new Date(calYear,calMonth,1),me=new Date(calYear,calMonth,calTotalDays,23,59)
+                        const d=new Date(c.debut),f=new Date(c.fin)
+                        const s2=d<ms?ms:d,e2=f>me?me:f
+                        const sd=s2.getDate()-1,dur=Math.round((e2-s2)/(1000*60*60*24))+1
+                        const isApprouve=c.statut==="Approuvé"
+                        return(
+                          <div key={c.id} title={`${fmtDate(c.debut)} → ${fmtDate(c.fin)} · ${joursOuvrables(c.debut,c.fin)}j ouvrables · ${c.statut}`}
+                            style={{position:"absolute",left:sd*COL_W+2,top:6,height:ROW_H-12,
+                              width:Math.max(dur*COL_W-4,COL_W-4),background:TC[t].bg,borderRadius:6,
+                              opacity:isApprouve?1:0.55,display:"flex",alignItems:"center",overflow:"hidden",
+                              border:isApprouve?"none":`1.5px dashed ${TC[t].bg}`,boxSizing:"border-box"}}>
+                            {dur*COL_W>50&&<span style={{fontSize:10,color:"#fff",padding:"0 6px",fontWeight:500}}>{isApprouve?"✓":c.statut.split(" ")[0]}</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* En cours de traitement */}
+      {enAttente.length>0&&<Card>
+        <SectionTitle>En cours de traitement</SectionTitle>
+        {enAttente.map(c=>{
+          const step=["En attente","Validé Manager","Validé RH","Approuvé"].indexOf(c.statut)
+          return(<div key={c.id} style={{padding:"12px 0",borderBottom:"0.5px solid #f5f5f5"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:6}}>
+              <div><TypeBadge type={c.type}/><span style={{fontSize:12,color:"#888",marginLeft:8}}>{fmtShort(c.debut)} → {fmtShort(c.fin)} · {joursOuvrables(c.debut,c.fin)}j ouvrables</span></div>
+              <Badge statut={c.statut}/>
+            </div>
+            <div style={{display:"flex",alignItems:"center"}}>
+              {["Soumis","Manager","RH","Approuvé"].map((lbl,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",flex:i<3?1:0}}>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                    <div style={{width:20,height:20,borderRadius:"50%",background:i<=step?"linear-gradient(135deg,#7C3AED,#EC4899)":"#e8e8e8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:i<=step?"#fff":"#bbb",fontWeight:500}}>{i<step?"✓":i+1}</div>
+                    <div style={{fontSize:9,color:i<=step?"#7C3AED":"#bbb",whiteSpace:"nowrap"}}>{lbl}</div>
+                  </div>
+                  {i<3&&<div style={{flex:1,height:2,background:i<step?"linear-gradient(135deg,#7C3AED,#EC4899)":"#e8e8e8",marginBottom:14,minWidth:10}}/>}
+                </div>
+              ))}
+            </div>
+          </div>)
+        })}
+      </Card>}
+
+      {/* Historique */}
+      <Card>
+        <SectionTitle>Historique de mes congés</SectionTitle>
+        {mesConges.length===0&&<div style={{textAlign:"center",padding:"20px 0",color:"#bbb",fontSize:13}}>Aucune demande</div>}
+        {mesConges.slice().sort((a,b)=>new Date(b.debut)-new Date(a.debut)).map(c=>(
+          <div key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"0.5px solid #f5f5f5",flexWrap:"wrap"}}>
+            <div style={{flex:1,minWidth:120}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <TypeBadge type={c.type}/>
+                <span style={{fontSize:12,color:"#666"}}>{fmtDate(c.debut)} → {fmtDate(c.fin)}</span>
+              </div>
+              <div style={{fontSize:11,color:"#aaa",marginTop:3}}>{joursOuvrables(c.debut,c.fin)}j ouvrables · {diffDays(c.debut,c.fin)+1}j calendrier</div>
+              {c.commentaire&&<div style={{fontSize:11,color:"#bbb",fontStyle:"italic",marginTop:2}}>"{c.commentaire}"</div>}
+            </div>
+            <Badge statut={c.statut}/>
+          </div>
+        ))}
+      </Card>
+    </div>
+  )
+}
 
   // Chargement des vrais soldes depuis Supabase
   const [solde, setSolde] = useState(null)
