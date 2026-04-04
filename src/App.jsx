@@ -1854,13 +1854,13 @@ const pendingBadge=useMemo(()=>{
       </div>
 
       {/* DASHBOARD */}
-      {tab==="dashboard"&&isEmp&&<DashboardEmploye profile={profile} conges={conges} salaries={salaries} onNewRequest={()=>setTab("form")}/>}
+      {tab==="dashboard"&&isEmp&&<DashboardEmploye profile={profile} conges={conges} salaries={salaries} onNewRequest={()=>setTab("form")} soumettre={soumettre} role={role}/>}
       {tab==="dashboard"&&isMgr&&<DashboardManager profile={profile} conges={conges} salaries={salaries} societes={societes} changerStatut={handleChangerStatut}/>}
       {tab==="dashboard"&&isRH&&<DashboardRH profile={profile} conges={conges} salaries={salaries} societes={societes} changerStatut={handleChangerStatut}/>}
       {tab==="dashboard"&&isAdmin&&<DashboardSuperAdmin profile={profile} conges={conges} salaries={salaries} societes={societes} changerStatut={handleChangerStatut} profiles={profiles} logs={logs}/>}
       
       {/* MES CONGÉS */}
-      {tab==="mescongés"&&!isEmp&&<DashboardEmploye profile={profile} conges={conges} salaries={salaries} onNewRequest={()=>setTab("form")}/>}
+      {tab==="mescongés"&&!isEmp&&<DashboardEmploye profile={profile} conges={conges} salaries={salaries} onNewRequest={()=>setTab("form")} soumettre={soumettre} role={role}/>}
      
       {/* FORM */}
       {tab==="form"&&<div style={{background:"#fff",border:"0.5px solid #e5e5e5",borderRadius:12,padding:20}}>
