@@ -238,7 +238,10 @@ function DashboardEmploye({profile,conges,salaries,societes,onNewRequest,soumett
 
   async function handleSubmit(e){
     e.preventDefault()
-    if(!form.debut||!form.fin||new Date(form.fin)<new Date(form.debut)){setFormMsg({text:"Dates invalides",type:"error"});return}
+    const dateMin = today.toISOString().split('T')[0]
+    if(!form.debut||!form.fin){setFormMsg({text:"Dates obligatoires",type:"error"});return}
+    if(form.debut < dateMin){setFormMsg({text:"La date de début ne peut pas être dans le passé",type:"error"});return}
+    if(form.fin < form.debut){setFormMsg({text:"La date de fin doit être après la date de début",type:"error"});return}
     setSubmitLoading(true)
     let statutInitial="En attente"
     if(role==="Manager")statutInitial="Validé Manager"
