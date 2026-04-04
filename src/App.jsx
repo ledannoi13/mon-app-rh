@@ -530,31 +530,6 @@ function PanelUtilisateurs({profiles,salaries,societes,loading,updateProfile,del
   }
   setCreateLoading(false)
 }
-    try{
-      // Client secondaire en mémoire — ne déconnecte pas l'admin
-      const{createClient}=await import('@supabase/supabase-js')
-      const tmpClient=createClient(
-        import.meta.env.VITE_SUPABASE_URL||supabase.supabaseUrl,
-        import.meta.env.VITE_SUPABASE_ANON_KEY||supabase.supabaseKey,
-        {auth:{storage:{getItem:()=>null,setItem:()=>{},removeItem:()=>{}},persistSession:false,autoRefreshToken:false}}
-      )
-      const{data,error}=await tmpClient.auth.signUp({email:email.trim(),password})
-      if(error)throw error
-      if(!data?.user)throw new Error("Utilisateur non créé")
-      // Crée le profil
-      const profileData={id:data.user.id,nom:nom.trim(),role}
-      if(role==="Manager"&&societe_id)profileData.societe_id=societe_id
-      if(role==="Employé"&&salarie_id)profileData.salarie_id=salarie_id
-      const{error:profErr}=await supabase.from('profiles').insert(profileData)
-      if(profErr)throw profErr
-      await logAction(`Création utilisateur : ${nom} (${role})`,email)
-      setCreateSuccess(`✓ Compte créé ! ${nom} peut se connecter avec ${email}`)
-      setCreateForm({nom:"",email:"",password:"",role:"Employé",societe_id:"",salarie_id:""})
-    }catch(e){
-      setCreateError(e.message||"Erreur lors de la création")
-    }
-    setCreateLoading(false)
-  }
 
   return(
     <div>
