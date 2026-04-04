@@ -263,7 +263,7 @@ function DashboardEmploye({profile,conges,salaries,societes,onNewRequest,soumett
 
       {/* Bandeau bienvenue */}
       <div style={{background:"linear-gradient(135deg,#1e1b4b,#312e81)",borderRadius:16,padding:"20px 24px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",width:120,height:120,borderRadius:"50%",background:"rgba(255,255,255,0.06)",top:-30,right:40}}/>
+        <div style={{position:"absolute",width:120,height:120,borderRadius:"50%",background:"rgba(255,255,255,0.06)",top:-30,right:40,pointerEvents:"none"}}/>
         <div style={{width:48,height:48,borderRadius:"50%",background:"linear-gradient(135deg,#FF6B6B,#FF8E53)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:700,color:"#fff",flexShrink:0}}>{initials(profile.nom)}</div>
         <div style={{flex:1}}>
           <div style={{fontSize:18,fontWeight:700,color:"white",fontFamily:"'Syne',sans-serif"}}>Bonjour, {profile.nom.split(" ")[0]} 👋</div>
