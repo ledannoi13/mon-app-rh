@@ -297,12 +297,12 @@ function DashboardEmploye({profile,conges,salaries,societes,onNewRequest,soumett
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>DATE DE DÉBUT</label>
-                <input type="date" value={form.debut} onChange={e=>{setForm(f=>({...f,debut:e.target.value}));setFormMsg(null)}} required
+                <input type="date" value={form.debut} onChange={e=>{setForm(f=>({...f,debut:e.target.value}));setFormMsg(null)}} required min={today.toISOString().split('T')[0]}
                   style={{width:"100%",fontSize:13,padding:"8px 12px",border:"1.5px solid #e5e7eb",borderRadius:8,boxSizing:"border-box"}}/>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"#374151",display:"block",marginBottom:4}}>DATE DE FIN</label>
-                <input type="date" value={form.fin} onChange={e=>{setForm(f=>({...f,fin:e.target.value}));setFormMsg(null)}} required
+                <input type="date" value={form.fin} onChange={e=>{setForm(f=>({...f,fin:e.target.value}));setFormMsg(null)}} required min={form.debut||today.toISOString().split('T')[0]}
                   style={{width:"100%",fontSize:13,padding:"8px 12px",border:"1.5px solid #e5e7eb",borderRadius:8,boxSizing:"border-box"}}/>
               </div>
               <div style={{gridColumn:"1/-1"}}>
@@ -1761,7 +1761,7 @@ const pendingBadge=useMemo(()=>{
           <div><label style={{fontSize:12,color:"#888",display:"block",marginBottom:4}}>Type *</label><select value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} style={{width:"100%",fontSize:13,padding:"7px 10px",border:"0.5px solid #ddd",borderRadius:6}}>{TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
             <div><label style={{fontSize:12,color:"#888",display:"block",marginBottom:4}}>Début *</label><input type="date" value={form.debut} onChange={e=>setForm(f=>({...f,debut:e.target.value}))} style={{width:"100%",fontSize:13,boxSizing:"border-box",padding:"7px 10px",border:"0.5px solid #ddd",borderRadius:6}}/></div>
-            <div><label style={{fontSize:12,color:"#888",display:"block",marginBottom:4}}>Fin *</label><input type="date" value={form.fin} onChange={e=>setForm(f=>({...f,fin:e.target.value}))} style={{width:"100%",fontSize:13,boxSizing:"border-box",padding:"7px 10px",border:"0.5px solid #ddd",borderRadius:6}}/></div>
+            <div><label style={{fontSize:12,color:"#888",display:"block",marginBottom:4}}>Fin *</label><input type="date" value={form.fin} onChange={e=>setForm(f=>({...f,fin:e.target.value}))} min={form.debut||today.toISOString().split('T')[0]} style={{width:"100%",fontSize:13,boxSizing:"border-box",padding:"7px 10px",border:"0.5px solid #ddd",borderRadius:6}}/></div>
           </div>
           <div style={{gridColumn:"1/-1"}}><label style={{fontSize:12,color:"#888",display:"block",marginBottom:4}}>Commentaire</label><textarea value={form.commentaire} onChange={e=>setForm(f=>({...f,commentaire:e.target.value}))} rows={2} style={{width:"100%",fontSize:13,boxSizing:"border-box",padding:"7px 10px",border:"0.5px solid #ddd",borderRadius:6,resize:"vertical"}}/></div>
         </div>
