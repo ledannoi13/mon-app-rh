@@ -1523,6 +1523,58 @@ function ModalChangerMotDePasse({ onClose }) {
     </Modal>
   )
 }
+/* ═══ PANEL PARAMÈTRES ═══ */
+function PanelParametres({societes,saveSociete,doDeleteSociete,socModal,setSocModal,socNom,setSocNom,socConfirmDel,setSocConfirmDel}){
+  return(
+    <div style={{maxWidth:700}}>
+      <div style={{background:"linear-gradient(135deg,#7C3AED,#EC4899)",borderRadius:12,padding:"20px 24px",marginBottom:24,color:"#fff"}}>
+        <div style={{fontSize:18,fontWeight:700,fontFamily:"'Plus Jakarta Sans',sans-serif"}}>⚙️ Paramètres</div>
+        <div style={{fontSize:13,opacity:0.85,marginTop:4}}>Administration générale de l'application</div>
+      </div>
+
+      {/* Section sociétés */}
+      <div style={{background:"#fff",border:"0.5px solid #e5e5e5",borderRadius:12,padding:20,marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:600,color:"#111"}}>Gestion des sociétés</div>
+          <button onClick={()=>{setSocModal("create");setSocNom("")}} style={{fontSize:13,padding:"6px 14px",borderRadius:20,border:"1.5px dashed #7C3AED",background:"transparent",color:"#7C3AED",cursor:"pointer",fontWeight:500}}>+ Nouvelle société</button>
+        </div>
+        {societes.length===0
+          ?<p style={{fontSize:13,color:"#aaa",textAlign:"center",padding:"24px 0"}}>Aucune société enregistrée</p>
+          :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {societes.map(s=>(
+              <div key={s.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"#f9f9f9",borderRadius:8,border:"0.5px solid #eee"}}>
+                <span style={{fontSize:14,fontWeight:500,color:"#222"}}>{s.nom}</span>
+                <div style={{display:"flex",gap:6}}>
+                  <button onClick={()=>{setSocModal(s);setSocNom(s.nom)}} style={{fontSize:12,padding:"5px 12px",borderRadius:8,border:"0.5px solid #d8b4fe",background:"#f5f3ff",color:"#7C3AED",cursor:"pointer",fontWeight:500}}>✎ Modifier</button>
+                  <button onClick={()=>setSocConfirmDel(s.id)} style={{fontSize:12,padding:"5px 12px",borderRadius:8,border:"0.5px solid #fca5a5",background:"#fef2f2",color:"#E24B4A",cursor:"pointer",fontWeight:500}}>× Supprimer</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        }
+      </div>
+
+      {/* Modal création/modification */}
+      {(socModal==="create"||socModal?.id)&&<Modal title={socModal==="create"?"Nouvelle société":"Modifier la société"} onClose={()=>{setSocModal(null);setSocNom("")}}>
+        <input value={socNom} onChange={e=>setSocNom(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveSociete()} placeholder="Nom de la société" autoFocus style={{width:"100%",fontSize:14,marginBottom:16,boxSizing:"border-box",padding:"8px 10px",border:"0.5px solid #ddd",borderRadius:6}}/>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={saveSociete} style={{flex:1,fontSize:13,padding:8,borderRadius:8,background:"linear-gradient(135deg,#7C3AED,#EC4899)",color:"#fff",border:"none",cursor:"pointer",fontWeight:600}}>{socModal==="create"?"Créer":"Enregistrer"}</button>
+          <button onClick={()=>{setSocModal(null);setSocNom("")}} style={{fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer",border:"0.5px solid #ddd"}}>Annuler</button>
+        </div>
+      </Modal>}
+
+      {/* Modal confirmation suppression */}
+      {socConfirmDel&&<Modal title="Supprimer la société" onClose={()=>setSocConfirmDel(null)}>
+        <p style={{fontSize:13,color:"#666",marginBottom:16}}>Supprimer <strong>{societes.find(s=>s.id===socConfirmDel)?.nom}</strong> supprimera aussi tous ses salariés et congés.</p>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>doDeleteSociete(socConfirmDel)} style={{flex:1,fontSize:13,padding:8,borderRadius:8,background:"#FCEBEB",color:"#501313",border:"0.5px solid #F7C1C1",cursor:"pointer"}}>Supprimer définitivement</button>
+          <button onClick={()=>setSocConfirmDel(null)} style={{fontSize:13,padding:"8px 16px",borderRadius:8,cursor:"pointer",border:"0.5px solid #ddd"}}>Annuler</button>
+        </div>
+      </Modal>}
+    </div>
+  )
+}
+
 export default function App(){
   const{user,profile,loading:authLoading,login,logout,isRecovery,setIsRecovery}=useAuth()
   const{societes,createSociete,updateSociete,deleteSociete}=useSocietes()
@@ -1689,7 +1741,7 @@ const pendingBadge=useMemo(()=>{
     ?[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Gantt"]]
     :isRH
     ?[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"]]
-    :[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"],["utilisateurs","Utilisateurs"],["logs","Historique"]]
+    :[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"],["utilisateurs","Utilisateurs"],["logs","Historique"],["parametres","⚙️ Paramètres"]]
 
   const ganttMonth=today.getMonth(),ganttYear=today.getFullYear()
   const totalDays=new Date(ganttYear,ganttMonth+1,0).getDate()
@@ -1748,20 +1800,15 @@ const pendingBadge=useMemo(()=>{
         </div>
       </div>
       {/* FILTRES */}
-      {canAll&&tab!=="salaries"&&tab!=="dashboard"&&tab!=="utilisateurs"&&tab!=="logs"&&(
+      {canAll&&tab!=="salaries"&&tab!=="dashboard"&&tab!=="utilisateurs"&&tab!=="logs"&&tab!=="parametres"&&(
         <div style={{marginBottom:14,padding:"10px 12px",background:"#f9f9f9",borderRadius:8,border:"0.5px solid #e5e5e5"}}>
           <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",paddingBottom:8,borderBottom:"0.5px solid #e5e5e5",marginBottom:8}}>
             {["Toutes",...societes.map(s=>s.id)].map(id=>{
               const label=id==="Toutes"?"Toutes":getSocNom(id,societes)
               return(<div key={id} style={{display:"flex",alignItems:"center"}}>
-                <button onClick={()=>setFiltSoc(id)} style={{fontSize:12,padding:"4px 10px",borderRadius:id==="Toutes"?"20px":"20px 0 0 20px",border:"0.5px solid #ccc",borderRight:id==="Toutes"?"0.5px solid #ccc":"none",background:filtSoc===id?"#111":"#fff",color:filtSoc===id?"#fff":"#666",cursor:"pointer"}}>{label}</button>
-                {id!=="Toutes"&&isAdmin&&<>
-                  <button onClick={()=>{setSocModal(societes.find(s=>s.id===id));setSocNom(getSocNom(id,societes))}} style={{fontSize:11,padding:"4px 6px",border:"0.5px solid #ccc",borderRight:"none",background:filtSoc===id?"#111":"#fff",color:filtSoc===id?"#aaa":"#888",cursor:"pointer"}}>✎</button>
-                  <button onClick={()=>setSocConfirmDel(id)} style={{fontSize:11,padding:"4px 6px",border:"0.5px solid #ccc",borderRadius:"0 20px 20px 0",background:filtSoc===id?"#111":"#fff",color:"#E24B4A",cursor:"pointer"}}>×</button>
-                </>}
+                <button onClick={()=>setFiltSoc(id)} style={{fontSize:12,padding:"4px 10px",borderRadius:"20px",border:"0.5px solid #ccc",background:filtSoc===id?"#111":"#fff",color:filtSoc===id?"#fff":"#666",cursor:"pointer"}}>{label}</button>
               </div>)
             })}
-            {isAdmin&&<button onClick={()=>{setSocModal("create");setSocNom("")}} style={{fontSize:12,padding:"4px 12px",borderRadius:20,border:"0.5px dashed #ccc",background:"transparent",color:"#888",cursor:"pointer"}}>+ Ajouter</button>}
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
             <select value={filtType} onChange={e=>setFiltType(e.target.value)} style={{fontSize:13,padding:"5px 8px",border:"0.5px solid #ddd",borderRadius:6}}><option>Tous</option>{TYPES.map(t=><option key={t}>{t}</option>)}</select>
@@ -1877,6 +1924,8 @@ const pendingBadge=useMemo(()=>{
       {tab==="soldes"&&(isAdmin||isRH)&&<PanelSoldes salaries={salaries} societes={societes}/>}
       {/* LOGS */}
       {tab==="logs"&&isAdmin&&<PanelLogs logs={logs} loading={logsLoading} clearLogs={clearLogs}/>}
+      {/* PARAMÈTRES */}
+      {tab==="parametres"&&isAdmin&&<PanelParametres societes={societes} saveSociete={saveSociete} doDeleteSociete={doDeleteSociete} socModal={socModal} setSocModal={setSocModal} socNom={socNom} setSocNom={setSocNom} socConfirmDel={socConfirmDel} setSocConfirmDel={setSocConfirmDel}/>}
 
    {/* GANTT */}
       {tab==="gantt"&&<GanttView congesVisibles={congesVisibles} salaries={salaries} societes={societes} canAll={canAll}/>}
