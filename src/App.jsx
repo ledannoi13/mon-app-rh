@@ -897,31 +897,39 @@ function PanelUtilisateurs({profiles,salaries,societes,loading,updateProfile,del
   )
 }
 
-/* ═══ GANTT VIEW ═══ */
+/* ═══ CALENDRIER VIEW ═══ */
 function GanttView({congesVisibles,salaries,societes,canAll}){
-  const [gMonth,setGMonth]=useState(today.getMonth())
   const [gYear,setGYear]=useState(today.getFullYear())
   const monthNames=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"]
-  const gTotalDays=new Date(gYear,gMonth+1,0).getDate()
-  const gCongesGantt=congesVisibles.filter(c=>{
+  const COL_W=32,ROW_H=44,LABEL_W=180
+  const dayNames=["D","L","M","M","J","V","S"]
+
+  // Infos mois + offsets cumulatifs
+  const months=Array.from({length:12},(_,m)=>({m,days:new Date(gYear,m+1,0).getDate()}))
+  const monthOffsets=[]
+  let off=0
+  months.forEach(({days},m)=>{monthOffsets[m]=off;off+=days})
+  const totalDays=off
+
+  // Congés sur toute l'année
+  const yearStart=new Date(gYear,0,1)
+  const yearEnd=new Date(gYear,11,31,23,59,59)
+  const gCongesYear=congesVisibles.filter(c=>{
     const d=new Date(c.debut),f=new Date(c.fin)
-    return d<=new Date(gYear,gMonth,gTotalDays,23,59)&&f>=new Date(gYear,gMonth,1)
+    return d<=yearEnd&&f>=yearStart
   })
-  const gSalGantt=[...new Set(gCongesGantt.map(c=>getSalId(c)))].map(id=>salaries.find(s=>s.id===id)).filter(Boolean)
-  const COL_W=26,ROW_H=36,LABEL_W=150
-  function prevMonth(){if(gMonth===0){setGMonth(11);setGYear(y=>y-1)}else setGMonth(m=>m-1)}
-  function nextMonth(){if(gMonth===11){setGMonth(0);setGYear(y=>y+1)}else setGMonth(m=>m+1)}
-  const isCurrentMonth=gMonth===today.getMonth()&&gYear===today.getFullYear()
+  const gSalYear=[...new Set(gCongesYear.map(c=>getSalId(c)))].map(id=>salaries.find(s=>s.id===id)).filter(Boolean)
+
   return(
     <div>
-      {/* Navigation mois */}
+      {/* Navigation année */}
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-        <button onClick={prevMonth} style={{width:34,height:34,borderRadius:8,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+        <button onClick={()=>setGYear(y=>y-1)} style={{width:34,height:34,borderRadius:8,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",color:"#666"}}>←</button>
         <div style={{flex:1,textAlign:"center"}}>
-          <div style={{fontSize:15,fontWeight:500}}>{monthNames[gMonth]} {gYear}</div>
-          {!isCurrentMonth&&<button onClick={()=>{setGMonth(today.getMonth());setGYear(today.getFullYear())}} style={{fontSize:11,color:"#3B8BD4",background:"none",border:"none",cursor:"pointer",padding:0,marginTop:2}}>← Aujourd'hui</button>}
+          <div style={{fontSize:18,fontWeight:700,color:"#111"}}>{gYear}</div>
+          {gYear!==today.getFullYear()&&<button onClick={()=>setGYear(today.getFullYear())} style={{fontSize:11,color:"#7C3AED",background:"none",border:"none",cursor:"pointer",padding:0,marginTop:2}}>← Aujourd'hui</button>}
         </div>
-        <button onClick={nextMonth} style={{width:34,height:34,borderRadius:8,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+        <button onClick={()=>setGYear(y=>y+1)} style={{width:34,height:34,borderRadius:8,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",color:"#666"}}>→</button>
       </div>
 
       {/* Légendes */}
@@ -932,61 +940,72 @@ function GanttView({congesVisibles,salaries,societes,canAll}){
 
       {/* Grille */}
       <div style={{overflowX:"auto",border:"0.5px solid #e8e8e8",borderRadius:12,background:"#fff"}}>
-        <div style={{minWidth:LABEL_W+gTotalDays*COL_W}}>
+        <div style={{minWidth:LABEL_W+totalDays*COL_W}}>
 
-          {/* En-tête jours */}
-          <div style={{display:"flex",borderBottom:"0.5px solid #e8e8e8",padding:"8px 12px 6px",background:"#fff",position:"sticky",top:0,zIndex:2}}>
-            <div style={{width:LABEL_W,flexShrink:0,fontSize:11,color:"#aaa",fontWeight:500}}>Salarié</div>
+          {/* En-tête sticky : ligne mois + ligne jours */}
+          <div style={{position:"sticky",top:0,zIndex:3,background:"#fff",borderBottom:"0.5px solid #e8e8e8"}}>
+            {/* Ligne noms de mois */}
+            <div style={{display:"flex",borderBottom:"0.5px solid #ede9fe"}}>
+              <div style={{width:LABEL_W,flexShrink:0,background:"#faf8ff"}}/>
+              {months.map(({m,days})=>(
+                <div key={m} style={{width:days*COL_W,flexShrink:0,borderLeft:"1px solid #ede9fe",textAlign:"center",fontSize:11,fontWeight:600,color:"#7C3AED",padding:"4px 0",background:"#faf8ff",letterSpacing:".04em"}}>
+                  {monthNames[m]}
+                </div>
+              ))}
+            </div>
+            {/* Ligne numéros de jours */}
             <div style={{display:"flex"}}>
-              {Array.from({length:gTotalDays},(_,i)=>{
-                const d=new Date(gYear,gMonth,i+1)
-                const isWE=d.getDay()===0||d.getDay()===6
-                const isToday=today.toDateString()===d.toDateString()
-                const dayNames=["D","L","M","M","J","V","S"]
-                return(
-                  <div key={i} style={{width:COL_W,flexShrink:0,textAlign:"center",background:isToday?"#3B8BD4":isWE?"#f5f5f5":"transparent",borderRadius:isToday?4:2,padding:"1px 0"}}>
-                    <div style={{fontSize:9,color:isToday?"#fff":isWE?"#ccc":"#ccc"}}>{dayNames[d.getDay()]}</div>
-                    <div style={{fontSize:11,fontWeight:isToday?600:400,color:isToday?"#fff":isWE?"#ccc":"#999"}}>{i+1}</div>
-                  </div>
-                )
-              })}
+              <div style={{width:LABEL_W,flexShrink:0,fontSize:11,color:"#aaa",fontWeight:500,padding:"6px 12px",background:"#fff"}}>Salarié</div>
+              {months.map(({m,days})=>
+                Array.from({length:days},(_,i)=>{
+                  const d=new Date(gYear,m,i+1)
+                  const isWE=d.getDay()===0||d.getDay()===6
+                  const isToday=today.toDateString()===d.toDateString()
+                  return(
+                    <div key={`${m}-${i}`} style={{width:COL_W,flexShrink:0,textAlign:"center",background:isToday?"#7C3AED":isWE?"#f0efff":"transparent",borderRadius:isToday?4:0,padding:"5px 0 4px",borderLeft:i===0?"0.5px solid #ede9fe":"none"}}>
+                      <div style={{fontSize:9,color:isToday?"#fff":isWE?"#c4b5fd":"#ddd"}}>{dayNames[d.getDay()]}</div>
+                      <div style={{fontSize:12,fontWeight:isToday?700:400,color:isToday?"#fff":isWE?"#a78bfa":"#bbb"}}>{i+1}</div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
 
           {/* Aucun résultat */}
-          {gSalGantt.length===0&&(
+          {gSalYear.length===0&&(
             <div style={{textAlign:"center",padding:"40px 0",color:"#bbb",fontSize:13}}>
-              Aucun congé en {monthNames[gMonth]} {gYear}
+              Aucun congé en {gYear}
             </div>
           )}
 
           {/* Lignes groupées par société */}
           {canAll
-            ?[...new Set(gSalGantt.map(s=>getSocId(s)))].map(socId=>{
-              const salsDeSoc=gSalGantt.filter(s=>getSocId(s)===socId)
+            ?[...new Set(gSalYear.map(s=>getSocId(s)))].map(socId=>{
+              const salsDeSoc=gSalYear.filter(s=>getSocId(s)===socId)
               if(!salsDeSoc.length)return null
               return(
                 <div key={socId}>
                   <div style={{fontSize:10,fontWeight:500,color:"#bbb",padding:"6px 12px 2px",background:"#fafafa",borderTop:"0.5px solid #f0f0f0",letterSpacing:".06em",textTransform:"uppercase"}}>
                     {getSocNom(socId,societes)}
                   </div>
-                  {salsDeSoc.map((sal,idx)=>renderRow(sal,idx,gCongesGantt,gYear,gMonth,gTotalDays,COL_W,ROW_H,LABEL_W))}
+                  {salsDeSoc.map((sal,idx)=>renderRow(sal,idx,gCongesYear,gYear,months,monthOffsets,COL_W,ROW_H,LABEL_W))}
                 </div>
               )
             })
-            :gSalGantt.map((sal,idx)=>renderRow(sal,idx,gCongesGantt,gYear,gMonth,gTotalDays,COL_W,ROW_H,LABEL_W))
+            :gSalYear.map((sal,idx)=>renderRow(sal,idx,gCongesYear,gYear,months,monthOffsets,COL_W,ROW_H,LABEL_W))
           }
         </div>
       </div>
 
-      {/* Stats du mois */}
+      {/* Stats année */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:10,marginTop:14}}>
         {TYPES.map(t=>(
           <div key={t} style={{background:"#fff",border:"0.5px solid #e8e8e8",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:10,height:10,borderRadius:2,background:TC[t].bg,flexShrink:0}}></div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:11,color:"#aaa",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t}</div>
-              <div style={{fontSize:20,fontWeight:500,color:TC[t].bg}}>{gCongesGantt.filter(c=>c.type===t).length}</div>
+              <div style={{fontSize:20,fontWeight:500,color:TC[t].bg}}>{gCongesYear.filter(c=>c.type===t).length}</div>
             </div>
           </div>
         ))}
@@ -995,30 +1014,40 @@ function GanttView({congesVisibles,salaries,societes,canAll}){
   )
 }
 
-function renderRow(sal,idx,gCongesGantt,gYear,gMonth,gTotalDays,COL_W,ROW_H,LABEL_W){
-  const cSal=gCongesGantt.filter(c=>getSalId(c)===sal.id)
+function renderRow(sal,idx,gCongesYear,gYear,months,monthOffsets,COL_W,ROW_H,LABEL_W){
+  const cSal=gCongesYear.filter(c=>getSalId(c)===sal.id)
+  const yearStart=new Date(gYear,0,1)
+  const yearEnd=new Date(gYear,11,31,23,59,59)
+  const rowBg=idx%2===0?"#fff":"#fafafa"
   return(
-    <div key={sal.id} style={{display:"flex",alignItems:"center",minHeight:ROW_H,borderBottom:"0.5px solid #f5f5f5",background:idx%2===0?"transparent":"#fafafa"}}>
-      <div style={{width:LABEL_W,flexShrink:0,fontSize:12,padding:"0 12px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",color:"#333",fontWeight:500}}>
+    <div key={sal.id} style={{display:"flex",alignItems:"center",minHeight:ROW_H,borderBottom:"0.5px solid #f5f5f5",background:rowBg}}>
+      <div style={{width:LABEL_W,flexShrink:0,fontSize:12,padding:"0 12px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",color:"#333",fontWeight:500,position:"sticky",left:0,background:rowBg,zIndex:1}}>
         {sal.nom}
       </div>
       <div style={{flex:1,position:"relative",height:ROW_H}}>
-        {Array.from({length:gTotalDays},(_,i)=>{
-          const d=new Date(gYear,gMonth,i+1)
-          const isWE=d.getDay()===0||d.getDay()===6
-          const isToday=today.toDateString()===d.toDateString()
-          return <div key={i} style={{position:"absolute",left:i*COL_W,top:0,width:COL_W,height:ROW_H,background:isToday?"rgba(59,139,212,0.07)":isWE?"rgba(0,0,0,0.025)":"transparent"}}/>
-        })}
+        {/* Fond weekends + séparateurs mois */}
+        {months.map(({m,days})=>
+          Array.from({length:days},(_,i)=>{
+            const d=new Date(gYear,m,i+1)
+            const isWE=d.getDay()===0||d.getDay()===6
+            const isToday=today.toDateString()===d.toDateString()
+            const left=(monthOffsets[m]+i)*COL_W
+            return <div key={`${m}-${i}`} style={{position:"absolute",left,top:0,width:COL_W,height:ROW_H,background:isToday?"rgba(124,58,237,0.07)":isWE?"rgba(124,58,237,0.04)":"transparent",borderLeft:i===0&&m>0?"0.5px solid #ede9fe":"none"}}/>
+          })
+        )}
+        {/* Barres de congés */}
         {cSal.map(c=>{
-          const ms=new Date(gYear,gMonth,1),me=new Date(gYear,gMonth,gTotalDays,23,59)
           const d=new Date(c.debut),f=new Date(c.fin)
-          const s2=d<ms?ms:d,e2=f>me?me:f
-          const sd=s2.getDate()-1,dur=Math.round((e2-s2)/(1000*60*60*24))+1
+          const s2=d<yearStart?yearStart:d
+          const e2=f>yearEnd?yearEnd:f
+          const sm=s2.getMonth(),sd=monthOffsets[sm]+(s2.getDate()-1)
+          const em=e2.getMonth(),ed=monthOffsets[em]+(e2.getDate()-1)
+          const dur=ed-sd+1
           const t=TC[c.type],isApprouve=c.statut==="Approuvé"
           return(
             <div key={c.id}
               title={`${sal.nom} — ${c.type}\n${fmtDate(c.debut)} → ${fmtDate(c.fin)} (${diffDays(c.debut,c.fin)+1}j)\nStatut : ${c.statut}`}
-              style={{position:"absolute",left:sd*COL_W+2,top:6,height:ROW_H-12,width:Math.max(dur*COL_W-4,COL_W-4),background:t.bg,borderRadius:6,opacity:isApprouve?1:0.55,display:"flex",alignItems:"center",overflow:"hidden",border:isApprouve?"none":`1.5px dashed ${t.bg}`,boxSizing:"border-box"}}>
+              style={{position:"absolute",left:sd*COL_W+2,top:7,height:ROW_H-14,width:Math.max(dur*COL_W-4,COL_W-4),background:t.bg,borderRadius:8,opacity:isApprouve?1:0.55,display:"flex",alignItems:"center",overflow:"hidden",border:isApprouve?"none":`1.5px dashed ${t.bg}`,boxSizing:"border-box"}}>
               {dur*COL_W>44&&<span style={{fontSize:10,color:"#fff",padding:"0 6px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight:500}}>{c.type.split(" ")[0]}{!isApprouve&&` (${c.statut.split(" ")[0]})`}</span>}
             </div>
           )
@@ -1738,10 +1767,10 @@ const pendingBadge=useMemo(()=>{
   const TABS=isEmp
     ?[["dashboard","Mon espace"],["form","+ Demande"]]
     :isMgr
-    ?[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Gantt"]]
+    ?[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Calendrier"]]
     :isRH
-    ?[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"]]
-    :[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Gantt"],["salaries","Salariés"],["soldes","Soldes"],["utilisateurs","Utilisateurs"],["logs","Historique"],["parametres","⚙️ Paramètres"]]
+    ?[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Calendrier"],["salaries","Salariés"],["soldes","Soldes"]]
+    :[["dashboard","Tableau de bord"],["mescongés","Mes congés"],["liste","Demandes",pendingBadge],["gantt","Calendrier"],["salaries","Salariés"],["soldes","Soldes"],["utilisateurs","Utilisateurs"],["logs","Historique"],["parametres","⚙️ Paramètres"]]
 
   const ganttMonth=today.getMonth(),ganttYear=today.getFullYear()
   const totalDays=new Date(ganttYear,ganttMonth+1,0).getDate()
