@@ -1552,6 +1552,81 @@ function ModalChangerMotDePasse({ onClose }) {
     </Modal>
   )
 }
+/* ═══ SALARIÉS LIST ═══ */
+function SalariesList({salaries,societes,conges,isAdmin,setSalModal,setSalForm,setSalConfirmDel}){
+  const [search,setSearch]=useState("")
+  const colors=["#7C3AED","#1D9E75","#D85A30","#3B8BD4"]
+
+  const filtered=salaries.filter(s=>s.nom?.toLowerCase().includes(search.toLowerCase()))
+
+  // Grouper par société, triées alphabétiquement
+  const socIds=[...new Set(filtered.map(s=>getSocId(s)))]
+    .sort((a,b)=>{
+      const na=societes.find(s=>s.id===a)?.nom||""
+      const nb=societes.find(s=>s.id===b)?.nom||""
+      return na.localeCompare(nb)
+    })
+
+  return(
+    <div>
+      {/* Barre d'outils */}
+      <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"center",flexWrap:"wrap"}}>
+        <input
+          value={search} onChange={e=>setSearch(e.target.value)}
+          placeholder="Rechercher un salarié..."
+          style={{flex:1,minWidth:160,fontSize:13,padding:"6px 12px",border:"0.5px solid #ddd",borderRadius:8,outline:"none"}}
+        />
+        <span style={{fontSize:12,color:"#aaa",whiteSpace:"nowrap"}}>{filtered.length} salarié(s)</span>
+        <button onClick={()=>{setSalModal("create");setSalForm({nom:"",poste:"",email:"",societe_id:""})}} style={{fontSize:13,padding:"6px 14px",borderRadius:8,background:"#E6F1FB",color:"#042C53",border:"0.5px solid #B5D4F4",cursor:"pointer",whiteSpace:"nowrap"}}>+ Nouveau</button>
+      </div>
+
+      {/* Liste groupée par société */}
+      <div style={{background:"#fff",border:"0.5px solid #e5e5e5",borderRadius:12,overflow:"hidden"}}>
+        {filtered.length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"#bbb",fontSize:13}}>Aucun salarié trouvé</div>}
+        {socIds.map((socId,si)=>{
+          const salsDeSoc=[...filtered.filter(s=>getSocId(s)===socId)]
+            .sort((a,b)=>a.nom.localeCompare(b.nom))
+          if(!salsDeSoc.length)return null
+          const socNom=societes.find(s=>s.id===socId)?.nom||"Sans société"
+          return(
+            <div key={socId}>
+              {/* Header société */}
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 16px",background:"#f8f7ff",borderLeft:"3px solid #7C3AED",borderTop:si>0?"0.5px solid #ede9fe":"none"}}>
+                <span style={{fontSize:11,fontWeight:600,color:"#7C3AED",textTransform:"uppercase",letterSpacing:".06em"}}>{socNom}</span>
+                <span style={{fontSize:11,color:"#c4b5fd",marginLeft:"auto"}}>{salsDeSoc.length}</span>
+              </div>
+              {/* Lignes salariés */}
+              {salsDeSoc.map((sal,idx)=>{
+                const nb=conges.filter(c=>getSalId(c)===sal.id).length
+                const bg=colors[sal.id%colors.length]
+                return(
+                  <div key={sal.id} style={{display:"flex",alignItems:"center",gap:12,padding:"11px 16px",borderTop:"0.5px solid #f5f5f5",background:idx%2===0?"#fff":"#fdfcff"}}>
+                    {/* Avatar */}
+                    <div style={{width:32,height:32,borderRadius:"50%",background:bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:"#fff",flexShrink:0}}>{initials(sal.nom)}</div>
+                    {/* Nom */}
+                    <div style={{fontSize:14,fontWeight:600,color:"#111",minWidth:120,flex:"0 0 auto"}}>{sal.nom}</div>
+                    {/* Poste */}
+                    <div style={{fontSize:12,color:"#9ca3af",flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sal.poste||<span style={{color:"#e5e5e5"}}>—</span>}</div>
+                    {/* Email */}
+                    <div style={{fontSize:12,color:"#9ca3af",minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:"0 1 200px",display:"none"}} className="sal-email">{sal.email}</div>
+                    {/* Nb demandes */}
+                    <span style={{fontSize:11,color:"#bbb",whiteSpace:"nowrap",flexShrink:0}}>{nb} dem.</span>
+                    {/* Actions */}
+                    <div style={{display:"flex",gap:6,flexShrink:0}}>
+                      <button onClick={()=>{setSalModal(sal);setSalForm({nom:sal.nom,poste:sal.poste||"",email:sal.email||"",societe_id:getSocId(sal)||""})}} style={{fontSize:12,padding:"4px 12px",borderRadius:7,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",color:"#555"}}>Modifier</button>
+                      {isAdmin&&<button onClick={()=>setSalConfirmDel(sal)} style={{fontSize:12,padding:"4px 10px",borderRadius:7,background:"#FCEBEB",color:"#501313",border:"0.5px solid #F7C1C1",cursor:"pointer"}}>×</button>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 /* ═══ PANEL PARAMÈTRES ═══ */
 function PanelParametres({societes,saveSociete,doDeleteSociete,socModal,setSocModal,socNom,setSocNom,socConfirmDel,setSocConfirmDel}){
   return(
@@ -1922,32 +1997,7 @@ const pendingBadge=useMemo(()=>{
       </div>}
 
       {/* SALARIÉS */}
-      {tab==="salaries"&&canAll&&<div>
-        <div style={{display:"flex",gap:8,marginBottom:12,alignItems:"center"}}>
-          <span style={{fontSize:12,color:"#888",marginLeft:"auto"}}>{salaries.length} salarié(s)</span>
-          <button onClick={()=>{setSalModal("create");setSalForm({nom:"",poste:"",email:"",societe_id:""})}} style={{fontSize:13,padding:"6px 14px",borderRadius:8,background:"#E6F1FB",color:"#042C53",border:"0.5px solid #B5D4F4",cursor:"pointer"}}>+ Nouveau</button>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))",gap:10}}>
-          {salaries.map(sal=>{
-            const nb=conges.filter(c=>getSalId(c)===sal.id).length
-            const colors=["#3B8BD4","#1D9E75","#D85A30","#888780"]
-            const bg=colors[sal.id%4]||colors[0]
-            return(<div key={sal.id} style={{background:"#fff",border:"0.5px solid #e5e5e5",borderRadius:12,padding:"14px 16px"}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                <div style={{width:36,height:36,borderRadius:"50%",background:bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:500,color:"#fff",flexShrink:0}}>{initials(sal.nom)}</div>
-                <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{sal.nom}</div><div style={{fontSize:12,color:"#888"}}>{getSocNom(getSocId(sal),societes)}</div></div>
-              </div>
-              {sal.poste&&<div style={{fontSize:12,color:"#888",marginBottom:4}}>📋 {sal.poste}</div>}
-              {sal.email&&<div style={{fontSize:12,color:"#888",marginBottom:4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>✉ {sal.email}</div>}
-              <div style={{fontSize:12,color:"#bbb",marginBottom:12}}>{nb} demande(s)</div>
-              <div style={{display:"flex",gap:6}}>
-                <button onClick={()=>{setSalModal(sal);setSalForm({nom:sal.nom,poste:sal.poste||"",email:sal.email||"",societe_id:getSocId(sal)||""})}} style={{flex:1,fontSize:12,padding:"5px 0",borderRadius:8,border:"0.5px solid #ddd",cursor:"pointer"}}>Modifier</button>
-                {isAdmin&&<button onClick={()=>setSalConfirmDel(sal)} style={{fontSize:12,padding:"5px 10px",borderRadius:8,background:"#FCEBEB",color:"#501313",border:"0.5px solid #F7C1C1",cursor:"pointer"}}>×</button>}
-              </div>
-            </div>)
-          })}
-        </div>
-      </div>}
+      {tab==="salaries"&&canAll&&<SalariesList salaries={salaries} societes={societes} conges={conges} isAdmin={isAdmin} setSalModal={setSalModal} setSalForm={setSalForm} setSalConfirmDel={setSalConfirmDel}/>}
 
       {/* UTILISATEURS */}
       {tab==="utilisateurs"&&isAdmin&&<PanelUtilisateurs profiles={profiles} salaries={salaries} societes={societes} loading={profilesLoading} updateProfile={updateProfile} deleteProfile={deleteProfile} logAction={logAction} currentUser={user}/>}
