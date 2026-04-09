@@ -722,7 +722,7 @@ function PanelUtilisateurs({profiles,salaries,societes,loading,updateProfile,del
       // Crée automatiquement un salarié pour tous les rôles sauf si déjà lié
       let salarie_id=createForm.salarie_id||null
       if(!salarie_id&&(role==="Manager"||role==="RH"||role==="Super Admin"||role==="Employé")){
-        const socId=societe_id||null
+        const socId=(role==="RH"||role==="Super Admin")?null:(societe_id||null)
         const{data:salData,error:salErr}=await supabase
           .from('salaries')
           .insert({nom:nom.trim(),email:email.trim(),societe_id:socId})
@@ -775,7 +775,7 @@ function PanelUtilisateurs({profiles,salaries,societes,loading,updateProfile,del
                 {ROLES.map(r=><option key={r}>{r}</option>)}
               </select>
             </div>
-            {(createForm.role==="Manager"||createForm.role==="RH"||createForm.role==="Employé")&&(
+            {(createForm.role==="Manager"||createForm.role==="Employé")&&(
               <div>
                 <label style={{fontSize:12,color:"#888",display:"block",marginBottom:4}}>Société</label>
                 <select value={createForm.societe_id} onChange={e=>setCreateForm(f=>({...f,societe_id:e.target.value}))} style={{width:"100%",fontSize:13,padding:"7px 10px",border:"0.5px solid #ddd",borderRadius:6}}>
