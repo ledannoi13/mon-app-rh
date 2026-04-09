@@ -1780,7 +1780,8 @@ const pendingBadge=useMemo(()=>{
 
      {/* HEADER */}
      {showChangePwd&&<ModalChangerMotDePasse onClose={()=>setShowChangePwd(false)}/>}
-      <div style={{background:"linear-gradient(135deg,#1e1b4b 0%,#312e81 45%,#1e3a5f 100%)",padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,boxShadow:"0 2px 20px rgba(0,0,0,0.15)"}}>
+      <div style={{background:"linear-gradient(135deg,#1e1b4b 0%,#312e81 45%,#1e3a5f 100%)",padding:"10px 20px",boxShadow:"0 2px 20px rgba(0,0,0,0.15)",position:"sticky",top:0,zIndex:20}}>
+      <div style={{maxWidth:1400,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#FF6B6B,#FF8E53)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,boxShadow:"0 4px 12px rgba(255,107,107,0.4)"}}>🏢</div>
           <div>
@@ -1798,6 +1799,7 @@ const pendingBadge=useMemo(()=>{
           <button onClick={()=>setShowChangePwd(true)} style={{fontSize:12,padding:"7px 14px",borderRadius:99,color:"rgba(255,255,255,0.7)",border:"1px solid rgba(255,255,255,0.2)",background:"transparent",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>🔑 Mot de passe</button>
           <button onClick={handleLogout} style={{fontSize:12,padding:"7px 14px",borderRadius:99,color:"rgba(255,255,255,0.7)",border:"1px solid rgba(255,255,255,0.2)",background:"transparent",cursor:"pointer",fontFamily:"'Plus Jakarta Sans',sans-serif"}}>Déconnexion</button>
         </div>
+      </div>
       </div>
       {/* FILTRES */}
       {canAll&&tab!=="salaries"&&tab!=="dashboard"&&tab!=="utilisateurs"&&tab!=="logs"&&tab!=="parametres"&&(
