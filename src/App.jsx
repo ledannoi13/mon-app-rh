@@ -48,6 +48,7 @@ const isThisWeek  = c => {
   const we=new Date(ws); we.setDate(ws.getDate()+6)
   return d<=we&&f>=ws&&["Approuvé","Validé RH","Validé Manager"].includes(c.statut)
 }
+const fmtJours  = n => { if(n==null)return 0; const r=Math.round(n*100)/100; return parseFloat(r.toFixed(2)) }
 const getSalId  = c => c.salarie_id || c.salarie
 const getSalObj = (c, salaries) => salaries.find(s => s.id === getSalId(c))
 const getSocId  = sal => sal?.societe_id || sal?.societeId
@@ -221,10 +222,10 @@ function DashboardEmploye({profile,conges,salaries,societes,onNewRequest,soumett
     const rechargeCpMensuelle=Number((solde.cp_annuel/12).toFixed(2))
     const rechargeRttMensuelle=Number((solde.rtt_annuel/12).toFixed(2))
 
-    const cpN1Projete=Math.max(solde.cp_n1_acquis-solde.cp_n1_pris,0)
-    const cpNProjetee=Math.max(solde.cp_n_acquis-solde.cp_n_pris,0)+(moisRestants*rechargeCpMensuelle)
-    const totalCpProjete=cpN1Projete+cpNProjetee
-    const rttProjete=Math.max(solde.rtt_acquis-solde.rtt_pris,0)+(moisRestants*rechargeRttMensuelle)
+    const cpN1Projete=fmtJours(Math.max(solde.cp_n1_acquis-solde.cp_n1_pris,0))
+    const cpNProjetee=fmtJours(Math.max(solde.cp_n_acquis-solde.cp_n_pris,0)+(moisRestants*rechargeCpMensuelle))
+    const totalCpProjete=fmtJours(cpN1Projete+cpNProjetee)
+    const rttProjete=fmtJours(Math.max(solde.rtt_acquis-solde.rtt_pris,0)+(moisRestants*rechargeRttMensuelle))
 
     const infoProjection=moisRestants>0?` (projeté dans ${moisRestants} mois)`:""
 
@@ -385,7 +386,7 @@ function DashboardEmploye({profile,conges,salaries,societes,onNewRequest,soumett
                alerte:solde.cp_n1_acquis-solde.cp_n1_pris>0&&new Date().getMonth()>=4},
               {label:"RTT",acquis:solde.rtt_acquis,pris:solde.rtt_pris,color:"#1D9E75",bg:"#E1F5EE"},
             ].map(({label,acquis,pris,color,bg,alerte})=>{
-              const restant=Math.max(acquis-pris,0)
+              const restant=fmtJours(Math.max(acquis-pris,0))
               const pct=acquis>0?Math.min(Math.round((pris/acquis)*100),100):0
               return(
                 <div key={label} style={{padding:"14px 16px",borderRadius:12,background:bg,border:`0.5px solid ${color}33`,position:"relative"}}>
@@ -397,7 +398,7 @@ function DashboardEmploye({profile,conges,salaries,societes,onNewRequest,soumett
                     <div style={{height:"100%",width:pct+"%",background:color,borderRadius:3}}/>
                   </div>
                   <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#aaa"}}>
-                    <span>{acquis}j acquis</span><span>{pris}j pris</span>
+                    <span>{fmtJours(acquis)}j acquis</span><span>{fmtJours(pris)}j pris</span>
                   </div>
                 </div>
               )
@@ -1184,7 +1185,7 @@ function PanelSoldes({ salaries, societes }) {
   }
 
   const SoldeBar = ({ label, acquis, pris, color }) => {
-    const restant = Math.max(acquis - pris, 0)
+    const restant = fmtJours(Math.max(acquis - pris, 0))
     const pct = acquis > 0 ? Math.min(Math.round((pris / acquis) * 100), 100) : 0
     return (
       <div style={{ marginBottom: 8 }}>
@@ -1192,7 +1193,7 @@ function PanelSoldes({ salaries, societes }) {
           <span style={{ color: '#888', fontWeight: 500 }}>{label}</span>
           <span style={{ color: '#aaa' }}>
             <span style={{ color, fontWeight: 600 }}>{restant}j</span> restants
-            <span style={{ color: '#ccc' }}> / {acquis}j acquis / {pris}j pris</span>
+            <span style={{ color: '#ccc' }}> / {fmtJours(acquis)}j acquis / {fmtJours(pris)}j pris</span>
           </span>
         </div>
         <div style={{ height: 6, background: '#f0f0f0', borderRadius: 3, overflow: 'hidden' }}>
