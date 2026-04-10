@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { joursOuvrables, feriesDansPeriode } from './joursFeries'
 import { useAuth, useSocietes, useSalaries, useConges } from './hooks/useAppData'
 import { supabase } from './supabase'
@@ -903,6 +903,16 @@ function GanttView({congesVisibles,salaries,societes,canAll}){
   const monthNames=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"]
   const COL_W=32,ROW_H=44,LABEL_W=180
   const dayNames=["D","L","M","M","J","V","S"]
+  const todayRef=useRef(null)
+
+  function scrollToToday(){
+    setTimeout(()=>todayRef.current?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}),100)
+  }
+  function goToToday(){
+    setGYear(today.getFullYear())
+    scrollToToday()
+  }
+  useEffect(()=>{scrollToToday()},[gYear])
 
   // Infos mois + offsets cumulatifs
   const months=Array.from({length:12},(_,m)=>({m,days:new Date(gYear,m+1,0).getDate()}))
@@ -927,7 +937,7 @@ function GanttView({congesVisibles,salaries,societes,canAll}){
         <button onClick={()=>setGYear(y=>y-1)} style={{width:34,height:34,borderRadius:8,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",color:"#666"}}>←</button>
         <div style={{flex:1,textAlign:"center"}}>
           <div style={{fontSize:18,fontWeight:700,color:"#111"}}>{gYear}</div>
-          {gYear!==today.getFullYear()&&<button onClick={()=>setGYear(today.getFullYear())} style={{fontSize:11,color:"#7C3AED",background:"none",border:"none",cursor:"pointer",padding:0,marginTop:2}}>← Aujourd'hui</button>}
+          <button onClick={goToToday} style={{fontSize:12,color:"#7C3AED",background:"none",border:"none",cursor:"pointer",padding:0,marginTop:2,fontWeight:500,opacity:gYear===today.getFullYear()?0.5:1}}>← Aujourd'hui</button>
         </div>
         <button onClick={()=>setGYear(y=>y+1)} style={{width:34,height:34,borderRadius:8,border:"0.5px solid #ddd",background:"#fff",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",color:"#666"}}>→</button>
       </div>
@@ -948,7 +958,7 @@ function GanttView({congesVisibles,salaries,societes,canAll}){
             <div style={{display:"flex",borderBottom:"0.5px solid #ede9fe"}}>
               <div style={{width:LABEL_W,flexShrink:0,background:"#faf8ff"}}/>
               {months.map(({m,days})=>(
-                <div key={m} style={{width:days*COL_W,flexShrink:0,borderLeft:"1px solid #ede9fe",textAlign:"center",fontSize:11,fontWeight:600,color:"#7C3AED",padding:"4px 0",background:"#faf8ff",letterSpacing:".04em"}}>
+                <div key={m} ref={m===today.getMonth()&&gYear===today.getFullYear()?todayRef:null} style={{width:days*COL_W,flexShrink:0,borderLeft:"1px solid #ede9fe",textAlign:"center",fontSize:11,fontWeight:600,color:"#7C3AED",padding:"4px 0",background:"#faf8ff",letterSpacing:".04em"}}>
                   {monthNames[m]}
                 </div>
               ))}
